@@ -1,0 +1,38 @@
+#!/bin/sh
+#
+# build — Build the zick executable with the large-heap runtime options
+#         baked in.
+#
+# The resolver needs a big heap and control stack to handle large package
+# indexes (e.g. the 19 MB APT Packages.gz in test-apt). Roswell bakes
+# --dynamic-space-size and --control-stack-size into the dumped executable,
+# so the built binary starts with these sizes without needing any wrapper.
+#
+# Override the sizes with environment variables, e.g.:
+#   DYNAMIC_SPACE_SIZE=4096 ./scripts/build
+#
+# Usage:  ./scripts/build
+#
+
+set -euo pipefail
+export POSIXLY_CORRECT=1
+
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+project_root="$(cd "$script_dir/.." && pwd)"
+
+# Heap (--dynamic-space-size) and stack (--control-stack-size), in MB.
+# 8192 MB heap / 64 MB stack: needed for full-repository resolutions such
+# as test-apt's ubuntu-desktop query.
+dynamic_space_size="${DYNAMIC_SPACE_SIZE:-4096}"
+control_stack_size="${CONTROL_STACK_SIZE:-32}"
+
+echo "Building zick with:"
+echo "  dynamic-space-size: ${dynamic_space_size} MB"
+echo "  control-stack-size: ${control_stack_size} MB"
+
+cd "$project_root"
+ros build com.djhaskin.zick.ros \
+    "dynamic-space-size=${dynamic_space_size}" \
+    "control-stack-size=${control_stack_size}"
+
+echo "Done: $project_root/com.djhaskin.zick"

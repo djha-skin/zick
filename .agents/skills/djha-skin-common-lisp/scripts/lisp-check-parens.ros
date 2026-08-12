@@ -1,0 +1,129 @@
+#!/bin/sh
+#|-*- mode:lisp -*-|#
+#| lisp-check-parens - print running paren depth for each line of a Lisp file.
+exec ros -Q -- $0 "$@"
+|#
+(progn ;;init forms
+  (ros:ensure-asdf)
+  #+quicklisp(ql:quickload '() :silent t)
+  )
+
+(defpackage :ros.script.lisp-check-parens.3995215241
+  (:use :cl))
+(in-package :ros.script.lisp-check-parens.3995215241)
+
+(defun parse-args (argv)
+  "Parse --from N --to M options from ARGV, returning (files from to)."
+  (let ((files nil)
+        (from nil)
+        (to nil)
+        (expect-from nil)
+        (expect-to nil))
+    (dolist (arg argv)
+      (cond
+        (expect-from
+         (setf from (parse-integer arg :junk-allowed t))
+         (setf expect-from nil))
+        (expect-to
+         (setf to (parse-integer arg :junk-allowed t))
+         (setf expect-to nil))
+        ((string= arg "--from")
+         (setf expect-from t))
+        ((string= arg "--to")
+         (setf expect-to t))
+        (t
+         (push arg files))))
+    (values (nreverse files) from to)))
+
+(defun check-file (file &key from to)
+  "Print paren depth per line of FILE. Return the final depth.
+   If FROM is non-nil, only print lines >= FROM (1-indexed).
+   If TO is non-nil, only print lines <= TO (1-indexed)."
+  (let ((depth 0)
+        (line-num 0)
+        (in-string nil)
+        (in-comment nil)
+        (in-block nil)
+        (backslash-run 0))
+    (with-open-file (in file :external-format :utf-8)
+      (loop for line = (read-line in nil)
+            while line
+            do (incf line-num)
+            (let ((display line)
+                  (left-count 0)
+                  (right-count 0))
+              (loop for i from 0 below (length line)
+                    for ch = (char line i)
+                    for prev = (if (zerop i) #\Null (char line (1- i)))
+                    do (cond
+                         (in-comment nil)
+                         (in-block
+                          (when (and (char= prev #\|)
+                                     (char= ch #\#))
+                            (setf in-block nil)))
+                         (in-string
+                          (if (char= ch #\\)
+                              (incf backslash-run)
+                              (progn
+                                (when (and (char= ch #\")
+                                           (evenp backslash-run))
+                                  (setf in-string nil))
+                                (setf backslash-run 0))))
+                         ((and (char= prev #\#)
+                               (char= ch #\\))
+                          ;; Skip a #\X character literal.  X is either a
+                          ;; single character (e.g. #\; #\") or a character
+                          ;; name (e.g. #\Space #\Newline).
+                          (let ((j (1+ i)))
+                            (when (< j (length line))
+                              (let ((c (char line j)))
+                                (if (or (alpha-char-p c)
+                                        (digit-char-p c))
+                                    (loop for k from j below (length line)
+                                          while (or (alpha-char-p
+                                                      (char line k))
+                                                    (digit-char-p
+                                                      (char line k))
+                                                    (char= (char line k)
+                                                           #\+))
+                                          do (setf i k))
+                                    (setf i j))))))
+                         ((char= ch #\")
+                          (setf in-string t)
+                          (setf backslash-run 0))
+                         ((and (char= prev #\#)
+                               (char= ch #\|))
+                          (setf in-block t))
+                         ((char= ch #\;)
+                          (setf in-comment t))
+                         ((char= ch #\()
+                          (incf depth)
+                          (incf left-count))
+                         ((char= ch #\))
+                          (decf depth)
+                          (incf right-count))))
+              (setf in-comment nil)
+              (when (and (or (null from) (>= line-num from))
+                         (or (null to) (<= line-num to)))
+                (when (> (length display) 60)
+                  (setf display (concatenate 'string
+                                             (subseq display 0 57)
+                                             "...")))
+                (format t "~5D paren level: ~D | left: ~D | right: ~D | ~A~%"
+                        line-num depth left-count right-count display))))
+      depth)))
+
+(defun main (&rest argv)
+  (multiple-value-bind (files from to) (parse-args argv)
+    (unless files
+      (format *error-output*
+              "usage: lisp-check-parens.ros [--from N] [--to M] <file>...~%")
+      (return-from main 1))
+    (let ((bad nil))
+      (dolist (file files)
+        (let ((d (check-file file :from from :to to)))
+          (unless (zerop d)
+            (format t "~A: unbalanced parens (final depth ~D)~%"
+                    file d)
+            (setf bad t))))
+      (if bad 1 0))))

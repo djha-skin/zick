@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# Assemble manual.scr from the section sources, then rebuild the docs and
+# rsync the generated site into docs/ so it can be committed.
+#
+# The build directory is `docs/build/`, which lives inside the destination
+# `docs/`; rsync is run without --delete so the tracked sources (scriba parts,
+# manifest.lisp, build-docs.ros, assets/) are never removed. If a generated
+# file is renamed or deleted upstream, remove its stale copy from docs/ by
+# hand after a build.
+set -e
+
+BUILD_DIR=docs/build/dsolv-generic-dependency-resolver/html
+
+cat docs/scriba/*.scr > docs/manual.scr
+./docs/build-docs.ros
+mkdir -p "$BUILD_DIR/assets"
+cp -r docs/assets/. "$BUILD_DIR/assets/"
+rsync -avHAX "$BUILD_DIR/" docs/
