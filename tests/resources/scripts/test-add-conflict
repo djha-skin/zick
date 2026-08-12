@@ -1,0 +1,46 @@
+#!/bin/sh
+# Black-box test: `zick add` refuses to install a package whose
+# archive owns a file already owned by another package, naming the
+# file and its owner, and leaves the existing package intact.  A
+# disjoint package installs fine next to it, and both are queryable.
+# Run from the project root (see test-all).
+set -eu
+
+root_path=${PWD}
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+fixture_url=${FIXTURE_URL:-https://127.0.0.1:8443}
+test_home=${root_path}/tests/resources/data/add-conflict
+
+rm -rf "${test_home}"
+mkdir -p "${test_home}/proj"
+
+"${runthis}" init -d "${test_home}/proj" > /dev/null 2>&1
+
+"${runthis}" add -d "${test_home}/proj" \
+    -k a -V 0.1.0 -l "${fixture_url}/a.zip" -n > /dev/null 2>&1
+[ -f "${test_home}/proj/a/poem.txt" ]
+
+# Installing a package that owns a/poem.txt (already owned by a) is
+# refused, naming the file and its owner.
+set +e
+"${runthis}" add -d "${test_home}/proj" \
+    -k clash -V 0.1.0 -l "${fixture_url}/conflict.zip" -n \
+    > "${test_home}/refused.nrdl" 2>&1
+refused_exit=$?
+set -e
+[ "${refused_exit}" -ne 0 ]
+grep -q 'already present' "${test_home}/refused.nrdl"
+grep -q 'poem.txt' "${test_home}/refused.nrdl"
+
+# The refused install changed nothing: a's file is intact and a is
+# still installed.
+grep -q 'stop this feeling' "${test_home}/proj/a/poem.txt"
+"${runthis}" info -d "${test_home}/proj" -k a > /dev/null 2>&1
+
+# A disjoint package installs fine next to a; both are queryable.
+"${runthis}" add -d "${test_home}/proj" \
+    -k c -V 0.1.0 -l "${fixture_url}/c.zip" -n > /dev/null 2>&1
+[ -f "${test_home}/proj/c/echo.txt" ]
+"${runthis}" info -d "${test_home}/proj" -k a > /dev/null 2>&1
+"${runthis}" info -d "${test_home}/proj" -k c > /dev/null 2>&1
+echo "test-add-conflict: ok"

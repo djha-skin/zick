@@ -33,6 +33,10 @@ echo 'The wind in the' > "${test_data}/a/willows.txt"
 (cd "${test_data}" && zip -qr "${wwwroot}/b.zip" b)
 (cd "${test_data}" && zip -qr "${wwwroot}/c.zip" c)
 
+# conflict.zip owns a/poem.txt, the same file a.zip installs, for
+# conflict-refusal testing.
+(cd "${test_data}" && zip -qr "${wwwroot}/conflict.zip" a/poem.txt)
+
 # bad.zip: a STORED entry whose content byte is flipped after zipping,
 # so the stored CRC no longer matches the content.
 python3 - "${wwwroot}/bad.zip" <<'PYEOF'

@@ -15,6 +15,8 @@
     #:download-package
     #:decide-config-fate
     #:package-file-conflicts
+    #:package-installable-p
+    #:list-archive-files
     #:config-and-upgrade-precautions
     #:install-package
     #:remove-package
@@ -1177,6 +1179,132 @@
         (package:package-file-conflicts
           store "a"
           (list (list :path "shared.txt" :is-directory nil))))))
+
+(define-test package-installable-p
+  :parent nil
+  "package-installable-p is T when a package's files are all unowned
+   (or owned by itself) and NIL when any file is owned by another
+   package."
+  (let ((store (store-with-files
+                 "a" "0.1.0"
+                 (list (list :path "shared.txt" :size 1
+                             :is-directory nil :checksum "c")))))
+    ;; b clashes on shared.txt, so it is not installable.
+    (true (not (package:package-installable-p
+                 store "b"
+                 (list (list :path "shared.txt" :is-directory nil)))))
+    ;; a's own file is not a conflict for a itself.
+    (true (package:package-installable-p
+            store "a"
+            (list (list :path "shared.txt" :is-directory nil))))
+    ;; Disjoint files are installable.
+    (true (package:package-installable-p
+            store "b"
+            (list (list :path "fresh.txt" :is-directory nil))))))
+
+(define-test list-archive-files
+  :parent nil
+  "list-archive-files returns the non-directory files of an archive
+   as :PATH/:IS-DIRECTORY plists."
+  (let* ((root (temporary-dir "zick-laf"))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")
+                                  ("conf.txt" . "config content")))
+                     "pkg.zip")))
+    (unwind-protect
+        (with-zip-file (zf zip-path)
+          (let* ((files (package:list-archive-files zf))
+                 (paths (mapcar (lambda (p) (getf p :path)) files)))
+            (is = 2 (length files))
+            (true (member "app.txt" paths :test #'string=))
+            (true (member "conf.txt" paths :test #'string=))
+            (is equal '(nil nil) (mapcar (lambda (p) (getf p :is-directory))
+                                         files))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test install-package-refuses-conflicts
+  :parent nil
+  "install-package refuses when the archive owns a file already owned
+   by another package, naming the file and its owner; the project tree
+   is left untouched."
+  (let* ((root (temporary-dir "zick-install-conflict"))
+         (proj (project-dir root))
+         (src-a (merge-pathnames "pkg-a/" root))
+         (src-b (merge-pathnames "pkg-b/" root))
+         (zip-a (make-zip
+                  root (write-source-fixture
+                         src-a '(("app.txt" . "a content")))
+                  "a.zip"))
+         (zip-b (make-zip
+                  root (write-source-fixture
+                         src-b '(("app.txt" . "b content")
+                                 ("b-only.txt" . "b only")))
+                  "b.zip"))
+         (url-a (http-serve-once zip-a))
+         (url-b (http-serve-once zip-b)))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (ensure-directories-exist proj)
+          (package:install-package (download-install-options proj url-a "a"))
+          (let ((msg (handler-case
+                         (progn
+                           (package:install-package
+                             (download-install-options proj url-b "b"))
+                           nil)
+                       (error (e) (princ-to-string e)))))
+            (true (search "already present" msg))
+            (true (search "app.txt (owned by a)" msg)))
+          ;; The failed install left the project untouched: no b files
+          ;; were written, and a's file is intact.
+          (true (not (uiop:file-exists-p
+                       (merge-pathnames "b-only.txt" proj))))
+          (is string= "a content"
+              (read-text-file (merge-pathnames "app.txt" proj)))
+          (true (not (null (package:get-package-info
+                             (install-options proj "a")))))
+          (true (null (package:get-package-info
+                        (install-options proj "b")))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test install-package-disjoint-succeeds
+  :parent nil
+  "install-package of two packages with disjoint files succeeds and
+   both are queryable."
+  (let* ((root (temporary-dir "zick-install-disjoint"))
+         (proj (project-dir root))
+         (src-a (merge-pathnames "pkg-a/" root))
+         (src-b (merge-pathnames "pkg-b/" root))
+         (zip-a (make-zip
+                  root (write-source-fixture
+                         src-a '(("a.txt" . "a content")))
+                  "a.zip"))
+         (zip-b (make-zip
+                  root (write-source-fixture
+                         src-b '(("b.txt" . "b content")))
+                  "b.zip"))
+         (url-a (http-serve-once zip-a))
+         (url-b (http-serve-once zip-b)))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (ensure-directories-exist proj)
+          (package:install-package (download-install-options proj url-a "a"))
+          (package:install-package (download-install-options proj url-b "b"))
+          (true (not (null (package:get-package-info
+                             (install-options proj "a")))))
+          (true (not (null (package:get-package-info
+                             (install-options proj "b")))))
+          (is string= "a content"
+              (read-text-file (merge-pathnames "a.txt" proj)))
+          (is string= "b content"
+              (read-text-file (merge-pathnames "b.txt" proj))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
 
 ;;; More config-fate combinations
 

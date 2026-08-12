@@ -309,6 +309,44 @@
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
 
+(define-test add-refuses-conflicting-install
+  :parent nil
+  "zick add of a package whose archive owns a file already owned by
+   another package fails, naming the file and its owner; the earlier
+   package stays intact."
+  (let* ((root (temporary-dir "zick-cli-conflict"))
+         (proj (project root))
+         (src-a (merge-pathnames "pkg-a/" root))
+         (src-b (merge-pathnames "pkg-b/" root))
+         (zip-a (make-zip
+                  root (write-source-fixture
+                         src-a '(("app.txt" . "a content")))
+                  "a.zip"))
+         (zip-b (make-zip
+                  root (write-source-fixture
+                         src-b '(("app.txt" . "b content")
+                                 ("b-only.txt" . "b only")))
+                  "b.zip"))
+         (url-a (http-serve-once zip-a))
+         (url-b (http-serve-once zip-b)))
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0" "-l" url-a))
+          ;; b clashes with a on app.txt: refused, naming file+owner.
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "add" "-k" "b"
+                                             "-V" "0.1.0" "-l" url-b)
+            (true (plusp exit))
+            (true (search "already present" out))
+            (true (search "app.txt (owned by" out)))
+          ;; a's file is untouched and a remains installed.
+          (is string= "a content"
+              (read-text-file (merge-pathnames "app.txt" proj)))
+          (is = 0 (cli proj "info" "-k" "a")))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
 ;;; remove
 
 (define-test remove-then-info-reports-not-found

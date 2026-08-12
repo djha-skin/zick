@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is exercised end to end: it reports the full removal set
   (dependers first under `-c`) while leaving the package record, its
   files, and its config-file backups untouched.
+- Install-next-to-existing-packages: `zick add` refuses an archive
+  whose files are already owned by another package, listing each
+  clashing file with its owner; disjoint installs succeed and both
+  packages are queryable.  New `package-installable-p` and
+  `list-archive-files` helpers back the refusal.
 - CLI download authorizations: `zick add` accepts
   `--json-download-authorizations` (per-host `basic`/`header`/
   `oauth-token` records, parsed with NRDL into `fs:download`'s auth

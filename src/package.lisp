@@ -41,6 +41,8 @@
     ;; Installation
     #:decide-config-fate
     #:package-file-conflicts
+    #:package-installable-p
+    #:list-archive-files
     #:config-and-upgrade-precautions
     #:install-package
     ;; Removal
@@ -221,6 +223,22 @@
             (list* :package owner rec)))))
     (:arg :seq new-files)))
 
+(defun package-installable-p (store package-name new-files)
+  "Return T when PACKAGE-NAME can be installed next to the packages
+   in STORE: none of NEW-FILES (plists with :PATH and :IS-DIRECTORY)
+   is owned by another package."
+  (null (package-file-conflicts store package-name new-files)))
+
+(defun list-archive-files (zip-file)
+  "Return the non-directory files of the open zippy ZIP-FILE as
+   plists with :PATH and :IS-DIRECTORY, the shape package-installable-p
+   and package-file-conflicts expect."
+  (gmap:gmap (:result list :filterp :id)
+    (lambda (entry)
+      (unless (getf entry :is-directory)
+        (list :path (getf entry :path) :is-directory nil)))
+    (:arg :seq (fs:archive-contents zip-file))))
+
 (defun config-group-paths (config-decisions fate)
   "Return the fset set of paths whose config decision is FATE.
 
@@ -378,7 +396,10 @@
            (package-file-conflicts store package-name new-files)))
     (when conflicts
       (error "Several files are already present in the project ~
-              which are owned by other packages: ~a" conflicts))
+              which are owned by other packages: ~{~a (owned by ~a)~^, ~}"
+             (mapcan (lambda (c)
+                       (list (getf c :path) (getf c :package)))
+                     conflicts)))
     (multiple-value-bind (precautions updated-store)
                          (config-and-upgrade-precautions
                            options store downloaded-zip zip-files)
