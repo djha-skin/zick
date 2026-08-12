@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clashing file with its owner; disjoint installs succeed and both
   packages are queryable.  New `package-installable-p` and
   `list-archive-files` helpers back the refusal.
+- Install-story test gaps closed: an instrumented test pins the HTTP
+  options `fs:download` sends for basic/header/oauth-token
+  authorizations and the insecure flag (by recording dexador:get's
+  arguments); the store serialization round-trip now also asserts
+  package metadata and file classes survive NRDL save/load; and the
+  black-box `test-add` verifies the recorded package end to end via
+  `info` and `files` on a fresh database.
 - CLI download authorizations: `zick add` accepts
   `--json-download-authorizations` (per-host `basic`/`header`/
   `oauth-token` records, parsed with NRDL into `fs:download`'s auth

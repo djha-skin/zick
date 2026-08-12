@@ -1321,6 +1321,98 @@
   ;; File absent on disk: install regardless of old record.
   (is eq :install (package:decide-config-fate "old" nil "new")))
 
+;;; Instrumented download options
+
+(defun auth-table-for (host record-plist)
+  "An fs:download auth hash table for HOST (a string) mapping to a
+   record hash table built from RECORD-PLIST."
+  (let ((record (make-hash-table)))
+    (loop for (k v) on record-plist by #'cddr
+          do (setf (gethash k record) v))
+    (let ((auth (make-hash-table)))
+      (setf (gethash (intern (string-upcase host) :keyword) auth)
+            record)
+      auth)))
+
+(define-test download-issues-correct-http-options
+  :parent nil
+  "fs:download passes the right HTTP options: :basic-auth for basic
+   records, :headers for header and oauth-token records, and the
+   :insecure flag, all on top of :want-stream and :force-binary."
+  (let ((calls nil)
+        (orig (symbol-function 'dexador:get))
+        (url "http://example.com/a.zip")
+        (dest-paths nil))
+    (unwind-protect
+        (progn
+          (setf (symbol-function 'dexador:get)
+                (lambda (&rest args)
+                  (push args calls)
+                  ;; An empty octet stream: content flow is covered by
+                  ;; the real-server tests; here we only assert on the
+                  ;; captured arguments.
+                  (flexi-streams:make-flexi-stream
+                    (make-string-input-stream "")
+                    :external-format :latin-1)))
+          ;; basic
+          (let ((dest (fs:new-unique-path (uiop:temporary-directory)
+                                          "zick-dl-basic.zip")))
+            (push dest dest-paths)
+            (fs:download url dest
+                         (auth-table-for
+                           "example.com"
+                           (list :type "basic"
+                                 :username "mode"
+                                 :password "code"))
+                         nil))
+          (let ((args (first calls)))
+            (is equal (cons "mode" "code")
+                (second (member :basic-auth args)))
+            (is eq t (second (member :want-stream args)))
+            (is eq t (second (member :force-binary args)))
+            (true (member :insecure args))
+            (is eq nil (second (member :insecure args))))
+          ;; header
+          (let ((dest (fs:new-unique-path (uiop:temporary-directory)
+                                          "zick-dl-header.zip")))
+            (push dest dest-paths)
+            (fs:download url dest
+                         (auth-table-for
+                           "example.com"
+                           (list :type "header"
+                                 :headers (list (cons "X-Key" "v"))))
+                         nil))
+          (let ((args (first calls)))
+            (is equal (list (cons "X-Key" "v"))
+                (second (member :headers args)))
+            (true (not (member :basic-auth args))))
+          ;; oauth-token
+          (let ((dest (fs:new-unique-path (uiop:temporary-directory)
+                                          "zick-dl-oauth.zip")))
+            (push dest dest-paths)
+            (fs:download url dest
+                         (auth-table-for
+                           "example.com"
+                           (list :type "oauth-token"
+                                 :oauth-token "sekret"))
+                         t))
+          (let ((args (first calls)))
+            (is equal (list (cons "Authorization" "Bearer sekret"))
+                (second (member :headers args)))
+            (is eq t (second (member :insecure args))))
+          ;; no auth record: no auth options at all
+          (let ((dest (fs:new-unique-path (uiop:temporary-directory)
+                                          "zick-dl-plain.zip")))
+            (push dest dest-paths)
+            (fs:download url dest nil t))
+          (let ((args (first calls)))
+            (true (not (member :basic-auth args)))
+            (true (not (member :headers args)))
+            (is eq t (second (member :insecure args)))))
+      (setf (symbol-function 'dexador:get) orig)
+      (dolist (p dest-paths)
+        (uiop:delete-file-if-exists p)))))
+
 ;;; install-package dependency handling
 
 (define-test install-package-unmet-dependency

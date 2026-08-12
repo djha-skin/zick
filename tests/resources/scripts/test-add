@@ -22,6 +22,18 @@ grep -q 'result successful' "${test_home}/add.nrdl"
 [ -f "${test_home}/proj/a/poem.txt" ]
 grep -q 'stop this feeling' "${test_home}/proj/a/poem.txt"
 
+# End to end on the fresh database: the record and its files are
+# queryable right after add.
+"${runthis}" info -d "${test_home}/proj" -k a \
+    > "${test_home}/info.nrdl" 2>&1
+grep -q 'result package-found' "${test_home}/info.nrdl"
+grep -q 'name "a"' "${test_home}/info.nrdl"
+grep -q 'version "0.1.0"' "${test_home}/info.nrdl"
+"${runthis}" files -d "${test_home}/proj" -k a \
+    > "${test_home}/files.nrdl" 2>&1
+grep -q 'path "a/poem.txt"' "${test_home}/files.nrdl"
+grep -q 'class normal-file' "${test_home}/files.nrdl"
+
 # A corrupted archive is rejected with a CRC violation error.
 "${runthis}" add -d "${test_home}/proj" \
     -k bad -V 0.1.0 -l "${fixture_url}/bad.zip" -n \

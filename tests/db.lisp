@@ -296,7 +296,8 @@
 
 (define-test store-round-trips
   :parent nil
-  "save-store writes an NRDL file that slurp-store reads back."
+  "save-store writes an NRDL file that slurp-store reads back, with
+   package metadata, file classes, and ghost files intact."
   (let* ((store (sample-store))
          (path (merge-pathnames
                  (format nil "zick-db-test-~a.nrdl" (random 1000000))
@@ -309,7 +310,16 @@
             (is string= "0.2.0"
                 (getf (db:package-info loaded "b") :version))
             (is = 2 (length (db:package-dependees loaded "b")))
-            (is = 3 (length (db:package-files loaded "c")))))
+            ;; Package metadata (the :mood map) survives.
+            (is f:equal? (f:map (:mood :rare))
+                (getf (db:package-info loaded "a") :metadata))
+            ;; File classes survive, including config and ghost files.
+            (let ((c-files (db:package-files loaded "c")))
+              (is = 3 (length c-files))
+              (is eq :config-file
+                  (getf (find-by-path "c/echo.txt" c-files) :class))
+              (is eq :ghost-file
+                  (getf (find-by-path "c/ghost.txt" c-files) :class)))))
       (uiop:delete-file-if-exists path))))
 
 (define-test slurp-missing-store
