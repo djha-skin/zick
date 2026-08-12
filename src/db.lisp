@@ -25,6 +25,7 @@
     ;; Records
     #:make-store
     #:store
+    #:store-p
     #:store-packages
     #:store-files
     #:make-package-record

@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   package-files, owned-by-p, dependers/dependees, add-package,
   insert-file/use, remove-package/files/uses) and a Parachute test
   suite (82 assertions).
+- Port of `zic.session`: `with-zic-session` (lock first, then open
+  the database), `with-database` (slurp/save the NRDL store at
+  `.zick-db/packages.nrdl`), `with-filelock` (a lock file whose
+  existence is the lock, created atomically and removed on close,
+  with zic's descriptive error text adapted to zick), and
+  `path-to-connection-string`, with a Parachute test suite (18
+  assertions) including a cross-process lock-contention test.
 
 ### Changed
 
