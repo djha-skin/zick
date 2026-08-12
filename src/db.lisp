@@ -1,7 +1,7 @@
 ;;;; src/db.lisp
 ;;;;
 ;;;; The zick package and file store: FSet persistent records
-;;;; serialized as a single NRDL document in the .zic-db directory.
+;;;; serialized as a single NRDL document in the .zick-db directory.
 ;;;;
 ;;;; Ported from zic's src/zic/db.clj.  Datalevin's entity refs become
 ;;;; explicit name keys resolved with FSet lookups: the store is a
@@ -67,7 +67,7 @@
     ;; Helpers
     #:clean-for-insert
     #:file-class-p
-    #:zic-paths))
+    #:zick-paths))
 
 (in-package #:com.djhaskin.zick/db)
 
@@ -330,9 +330,9 @@
     :is-source (package-record-is-source pkg)
     :dependencies dependencies))
 
-(defun zic-paths (metadata key)
-  "Return the paths under METADATA's :ZIC KEY (an FSet seq or nil)."
-  (lookup-key (lookup-key metadata :zic) key))
+(defun zick-paths (metadata key)
+  "Return the paths under METADATA's :ZICK KEY (an FSet seq or nil)."
+  (lookup-key (lookup-key metadata :zick) key))
 
 (defun insert-file (store package-id file)
   "Add FILE (a plist with :FILE/PATH, :FILE/SIZE, :FILE/CLASS, and
@@ -367,14 +367,14 @@
    an optional :IS-SOURCE.  FILES is a sequence of plists with :PATH,
    :SIZE, :IS-DIRECTORY, and :CHECKSUM (as produced by unpack);
    entries with :IS-DIRECTORY are skipped.  Paths listed under the
-   package's :ZIC :CONFIG-FILES become :CONFIG-FILE records; paths
-   under :ZIC :GHOST-FILES become :GHOST-FILE records with size 0.
+   package's :ZICK :CONFIG-FILES become :CONFIG-FILE records; paths
+   under :ZICK :GHOST-FILES become :GHOST-FILE records with size 0.
    DEPENDENCY-IDS is a sequence of package names."
   (let* ((name (getf pkg :package-name))
          (metadata (getf pkg :package-metadata))
          (config-files
-           (f:convert 'fset:set (zic-paths metadata :config-files)))
-         (ghost-files (zic-paths metadata :ghost-files))
+           (f:convert 'fset:set (zick-paths metadata :config-files)))
+         (ghost-files (zick-paths metadata :ghost-files))
          (pkg-record
            (make-package-record
              :name name

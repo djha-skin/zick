@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ocicl dependency pinning.
 - Smoke tests for the CLI entry point.
 - Port of `zic.fs`: archive handling via zippy, SHA-256/CRC-32 via
-  ironclad, downloads via dexador/quri, and `.zic-db` marking-file
+  ironclad, downloads via dexador/quri, and `.zick-db` marking-file
   search, with a Parachute test suite (60 assertions).
 - Port of `zic.db`: the package/file store as FSet persistent records
   (`package-record`/`file`/`store`) serialized to a single NRDL
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   package-files, owned-by-p, dependers/dependees, add-package,
   insert-file/use, remove-package/files/uses) and a Parachute test
   suite (82 assertions).
-- Port of `zic.session`: `with-zic-session` (lock first, then open
+- Port of `zic.session`: `with-zick-session` (lock first, then open
   the database), `with-database` (slurp/save the NRDL store at
   `.zick-db/packages.nrdl`), `with-filelock` (a lock file whose
   existence is the lock, created atomically and removed on close,

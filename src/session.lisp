@@ -21,7 +21,7 @@
   (:export
     #:with-filelock
     #:with-database
-    #:with-zic-session
+    #:with-zick-session
     #:path-to-connection-string))
 
 (in-package #:com.djhaskin.zick/session)
@@ -84,7 +84,7 @@
                    (if (db:store-p result) result store))
     result))
 
-(defun with-zic-session (connection-string lock-path f)
+(defun with-zick-session (connection-string lock-path f)
   "Surround the invocation of F with a zick session: take the lock
    at LOCK-PATH, then open the database at CONNECTION-STRING and
    invoke F with the store.

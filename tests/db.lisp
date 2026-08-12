@@ -22,7 +22,7 @@
 (defun config-metadata ()
   "A metadata map declaring c/echo.txt a config file and c/ghost.txt
    a ghost file."
-  (f:map (:zic
+  (f:map (:zick
            (f:map (:config-files
                     (f:convert 'fset:seq '("c/echo.txt")))
                   (:ghost-files
@@ -408,15 +408,15 @@
                          (f:lookup (db:store-packages store) "a"))))
     (is eq t (db:package-record-is-source rec))))
 
-(define-test zic-paths-edge-cases
+(define-test zick-paths-edge-cases
   :parent nil
-  "zic-paths handles nil metadata, missing keys, and present keys."
-  (true (null (db:zic-paths nil :config-files)))
-  (true (null (db:zic-paths (f:map (:other (f:empty-seq))) :config-files)))
+  "zick-paths handles nil metadata, missing keys, and present keys."
+  (true (null (db:zick-paths nil :config-files)))
+  (true (null (db:zick-paths (f:map (:other (f:empty-seq))) :config-files)))
   (let* ((metadata
-           (f:map (:zic (f:map (:config-files
-                                 (f:convert 'fset:seq '("conf.txt")))))))
-         (paths (db:zic-paths metadata :config-files)))
+           (f:map (:zick (f:map (:config-files
+                                  (f:convert 'fset:seq '("conf.txt")))))))
+         (paths (db:zick-paths metadata :config-files)))
     (true (not (null paths)))
     (is string= "conf.txt" (f:first paths))))
 
@@ -552,7 +552,7 @@
                         :package-version "0.1.0"
                         :package-location "loc"
                         :package-metadata
-                        (f:map (:zic
+                        (f:map (:zick
                                  (f:map (:ghost-files
                                           (f:convert 'fset:seq
                                                      '("a/ghost.txt"))))))

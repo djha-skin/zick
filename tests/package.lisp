@@ -85,7 +85,7 @@
 
 (defun config-metadata (&optional (config-files '("conf.txt")))
   "A metadata map declaring CONF-FILES as config files."
-  (f:map (:zic
+  (f:map (:zick
            (f:map (:config-files
                     (f:convert 'fset:seq config-files))))))
 
@@ -114,7 +114,7 @@
         :db-connection-string
         (uiop:native-namestring (merge-pathnames ".zick-db/" root))
         :root-path root
-        :lock-path (merge-pathnames "zick.lock" root)))
+        :lock-path (merge-pathnames ".zick.lock" root)))
 
 (defun make-zip (root source-dir zip-name)
   "Zip SOURCE-DIR (with names relative to it) to ZIP-NAME under ROOT."

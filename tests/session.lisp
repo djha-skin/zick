@@ -196,11 +196,11 @@
       (uiop:delete-directory-tree dir :validate t
                                   :if-does-not-exist :ignore))))
 
-;;; with-zic-session
+;;; with-zick-session
 
-(define-test with-zic-session-locks-and-persists
+(define-test with-zick-session-locks-and-persists
   :parent nil
-  "with-zic-session takes the lock first, opens the database, and
+  "with-zick-session takes the lock first, opens the database, and
    leaves no lock file behind."
   (let* ((root (uiop:ensure-directory-pathname
                  (merge-pathnames
@@ -209,18 +209,18 @@
                    (uiop:temporary-directory))))
          (db-dir (merge-pathnames "zick-db/" root))
          (conn (uiop:native-namestring db-dir))
-         (lock (merge-pathnames "zick.lock" root)))
+         (lock (merge-pathnames ".zick.lock" root)))
     (unwind-protect
         (progn
           (ensure-directories-exist db-dir)
-          (session:with-zic-session conn lock #'add-sample-package)
+          (session:with-zick-session conn lock #'add-sample-package)
           (true (null (probe-file lock)))
-          (session:with-zic-session conn lock
-                                    (lambda (store)
-                                      (is string= "a"
-                                          (getf (db:package-info
-                                                  store "a")
-                                                :name)))))
+          (session:with-zick-session conn lock
+                                     (lambda (store)
+                                       (is string= "a"
+                                           (getf (db:package-info
+                                                   store "a")
+                                                 :name)))))
       (uiop:delete-directory-tree root :validate t))))
 
 ;;; More lock and store-file details
@@ -240,9 +240,9 @@
           (true (null (probe-file lock))))
       (uiop:delete-file-if-exists lock))))
 
-(define-test with-zic-session-releases-lock-on-signal
+(define-test with-zick-session-releases-lock-on-signal
   :parent nil
-  "with-zic-session releases the lock when the thunk signals."
+  "with-zick-session releases the lock when the thunk signals."
   (let* ((root (uiop:ensure-directory-pathname
                  (merge-pathnames
                    (format nil "zick-root-err-~d/"
@@ -250,15 +250,15 @@
                    (uiop:temporary-directory))))
          (db-dir (merge-pathnames "zick-db/" root))
          (conn (uiop:native-namestring db-dir))
-         (lock (merge-pathnames "zick.lock" root)))
+         (lock (merge-pathnames ".zick.lock" root)))
     (unwind-protect
         (progn
           (ensure-directories-exist db-dir)
           (handler-case
-              (session:with-zic-session conn lock
-                                        (lambda (store)
-                                          (declare (ignore store))
-                                          (error "boom")))
+              (session:with-zick-session conn lock
+                                         (lambda (store)
+                                           (declare (ignore store))
+                                           (error "boom")))
             (error (e)
               (is string= "boom" (princ-to-string e))))
           (true (null (probe-file lock))))

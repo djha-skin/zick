@@ -363,11 +363,11 @@
   (with-temporary-directory (tmp)
     (let ((proj (merge-pathnames "proj/" tmp)))
       (ensure-directories-exist (merge-pathnames "proj/src/" tmp))
-      (write-text-file (merge-pathnames "proj/.zic-db" tmp) "mark")
+      (write-text-file (merge-pathnames "proj/.zick-db" tmp) "mark")
       (let ((found (find-marking-file (merge-pathnames "proj/src/" tmp)
-                                      ".zic-db")))
+                                      ".zick-db")))
         (true (not (null found)))
-        (is string= ".zic-db" (file-namestring found))))))
+        (is string= ".zick-db" (file-namestring found))))))
 
 (define-test find-marking-file-missing-returns-nil
   :parent nil
@@ -375,7 +375,7 @@
   (with-temporary-directory (tmp)
     (let ((proj (merge-pathnames "proj/src/" tmp)))
       (ensure-directories-exist proj)
-      (true (null (find-marking-file proj ".zic-db"))))))
+      (true (null (find-marking-file proj ".zick-db"))))))
 
 ;;; Small helpers
 

@@ -1,7 +1,7 @@
 ;;;; src/fs.lisp
 ;;;;
 ;;;; Filesystem and archive helpers for zick: zip reading, checksums,
-;;;; downloads, unpacking, and the .zic-db marking-file search.
+;;;; downloads, unpacking, and the .zick-db marking-file search.
 ;;;;
 ;;;; Ported from zic's src/zic/fs.clj.
 

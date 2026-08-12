@@ -266,8 +266,8 @@
            (f:intersection
              zip-path-fset
              (f:convert 'fset:set
-                        (db:zic-paths (getf options :package-metadata)
-                                      :config-files))))
+                        (db:zick-paths (getf options :package-metadata)
+                                       :config-files))))
          (contig-config-files
            (f:intersection old-config-fset new-config-fset))
          (contig-config-old-sums
@@ -343,7 +343,7 @@
    present on disk for :PUT-ASIDE and UPDATED-STORE is unchanged."
   (let ((root-path (getf options :root-path))
         (config-paths
-          (db:zic-paths (getf options :package-metadata) :config-files)))
+          (db:zick-paths (getf options :package-metadata) :config-files)))
     (if (db:package-info store (getf options :package-name))
         (upgrade-existing-package
           options store downloaded-zip zip-files)
@@ -367,7 +367,7 @@
          (package-version (getf options :package-version))
          (package-metadata (getf options :package-metadata))
          (zip-files (fs:archive-contents downloaded-zip))
-         (ghost-files (db:zic-paths package-metadata :ghost-files))
+         (ghost-files (db:zick-paths package-metadata :ghost-files))
          (new-files
            (append
              zip-files
@@ -417,7 +417,7 @@
    the installed files; otherwise the package is only recorded.
    Signals an error when a :PACKAGE-DEPENDENCY is not installed or
    when an archive file is owned by another package."
-  (session:with-zic-session
+  (session:with-zick-session
     (getf options :db-connection-string)
     (getf options :lock-path)
     (lambda (store)
@@ -473,7 +473,7 @@
    but not performed.  Signals an error when other packages depend on
    the one to be removed and :CASCADE is not enabled."
   (let (removed)
-    (session:with-zic-session
+    (session:with-zick-session
       (getf options :db-connection-string)
       (getf options :lock-path)
       (lambda (store)
