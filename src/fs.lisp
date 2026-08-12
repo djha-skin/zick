@@ -59,25 +59,43 @@
     (null nil)
     (f:set (f:contains? set item))))
 
+(defun with-entry-crc-preserved (entry f)
+  "Call F on ENTRY, restoring its stored CRC afterwards.
+
+   zippy's decode-entry overwrites an entry's stored CRC with its
+   local file header value (0 for data-descriptor zips), which would
+   break later crc-violations checks; capture it and put it back.
+   Must wrap the first decode of ENTRY: the stored CRC is only valid
+   before any decoding has clobbered it."
+  (let ((stored-crc (z:crc-32 entry)))
+    (unwind-protect (funcall f)
+      (setf (z:crc-32 entry) stored-crc))))
+
 (defun entry-sha256 (entry)
   "Compute the SHA-256 of ENTRY's decompressed content as a hex string."
-  (let ((digest (ironclad:make-digest :sha256)))
-    (z:decode-entry
-      (lambda (buffer start end)
-        (ironclad:update-digest digest buffer :start start :end end)
-        end)
-      entry)
-    (bytes->hexstr (ironclad:produce-digest digest))))
+  (with-entry-crc-preserved
+    entry
+    (lambda ()
+      (let ((digest (ironclad:make-digest :sha256)))
+        (z:decode-entry
+          (lambda (buffer start end)
+            (ironclad:update-digest digest buffer :start start :end end)
+            end)
+          entry)
+        (bytes->hexstr (ironclad:produce-digest digest))))))
 
 (defun entry-crc (entry)
   "Compute the CRC-32 of ENTRY's decompressed content as an integer."
-  (let ((digest (ironclad:make-digest :crc32)))
-    (z:decode-entry
-      (lambda (buffer start end)
-        (ironclad:update-digest digest buffer :start start :end end)
-        end)
-      entry)
-    (ironclad:octets-to-integer (ironclad:produce-digest digest))))
+  (with-entry-crc-preserved
+    entry
+    (lambda ()
+      (let ((digest (ironclad:make-digest :crc32)))
+        (z:decode-entry
+          (lambda (buffer start end)
+            (ironclad:update-digest digest buffer :start start :end end)
+            end)
+          entry)
+        (ironclad:octets-to-integer (ironclad:produce-digest digest))))))
 
 (defun write-entry-with-checksum (entry path)
   "Write ENTRY's content to PATH, returning its SHA-256 as a hex string."
@@ -235,7 +253,9 @@
       (unless (directory-entry-p entry)
         ;; NOTE: zippy's decode-entry overwrites the entry's stored CRC
         ;; with the local file header's value (which is 0 when a data
-        ;; descriptor is used), so capture it before computing.
+        ;; descriptor is used), so capture it before computing.  The
+        ;; other decode helpers preserve the stored CRC, so this is
+        ;; safe no matter what decoding happened before.
         (let ((stored (z:crc-32 entry))
               (computed (entry-crc entry)))
           (unless (eql computed stored)

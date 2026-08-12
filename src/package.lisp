@@ -166,7 +166,9 @@
                    (format nil "~a-~a.zip"
                            package-name package-version))))
            (staging-dir (uiop:ensure-directory-pathname
-                          (uiop:parse-native-namestring staging-path)))
+                          (if (stringp staging-path)
+                              (uiop:parse-native-namestring staging-path)
+                              staging-path)))
            (download-dest (merge-pathnames fname staging-dir)))
       (ensure-directories-exist staging-dir)
       (fs:download package-location download-dest

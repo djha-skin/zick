@@ -8,9 +8,11 @@
   (:use #:cl)
   (:import-from #:com.djhaskin.zick/package
     #:verify-package-files
+    #:get-package-files
     #:get-package-info
     #:get-package-dependees
     #:get-package-dependers
+    #:download-package
     #:decide-config-fate
     #:package-file-conflicts
     #:config-and-upgrade-precautions
@@ -21,6 +23,9 @@
   (:import-from #:com.djhaskin.zick/fs)
   (:import-from #:fset)
   (:import-from #:uiop)
+  (:import-from #:usocket)
+  (:import-from #:bordeaux-threads)
+  (:import-from #:flexi-streams)
   (:import-from #:org.shirakumo.zippy
     #:compress-zip
     #:with-zip-file)
@@ -67,11 +72,20 @@
                          text)
                     out)))
 
-(defun config-metadata ()
-  "A metadata map declaring conf.txt a config file."
+(defun read-text-file (path)
+  "Return the contents of the file at PATH as a string."
+  (with-open-file (in path :direction :input
+                      :element-type '(unsigned-byte 8))
+    (let ((octets (make-array (file-length in)
+                              :element-type '(unsigned-byte 8))))
+      (read-sequence octets in)
+      (map 'string #'code-char octets))))
+
+(defun config-metadata (&optional (config-files '("conf.txt")))
+  "A metadata map declaring CONF-FILES as config files."
   (f:map (:zic
            (f:map (:config-files
-                    (f:convert 'fset:seq '("conf.txt")))))))
+                    (f:convert 'fset:seq config-files))))))
 
 (defun project-dir (root)
   "The project directory under ROOT."
@@ -115,15 +129,28 @@
         :package-metadata (config-metadata)
         :root-path root))
 
-(defun store-with-files (name version files)
-  "A store with package NAME VERSION owning FILES."
+(defun store-with-files (name version files
+                         &key (config-files '("conf.txt")))
+  "A store with package NAME VERSION owning FILES, with
+   CONFIG-FILES declared as config files."
   (db:add-package (db:empty-store)
                   (list :package-name name
                         :package-version version
                         :package-location "loc"
-                        :package-metadata (config-metadata))
+                        :package-metadata (config-metadata config-files))
                   files
                   nil))
+
+(defun download-install-options (root url name
+                                 &key (version "0.1.0") metadata)
+  "An options plist installing NAME from the local URL URL with
+   :download-package t and a staging directory under ROOT."
+  (list* :package-location url
+         :download-package t
+         :staging-path (merge-pathnames "staging/" root)
+         (install-options root name
+                          :version version
+                          :metadata metadata)))
 
 (defun config-store (name version)
   "A store with package NAME VERSION owning one config file."
@@ -143,6 +170,66 @@
           nil)
       (error (e)
         (search search-text (princ-to-string e))))))
+
+;;; Throwaway HTTP server (for the download-package tests)
+
+(defun read-file-bytes (path)
+  "Return the bytes of the file at PATH as a byte array."
+  (with-open-file (in path :direction :input
+                      :element-type '(unsigned-byte 8))
+    (let ((octets (make-array (file-length in)
+                              :element-type '(unsigned-byte 8))))
+      (read-sequence octets in)
+      octets)))
+
+(defun http-serve-once (path)
+  "Serve the file at PATH over one HTTP GET on an ephemeral local
+   port, returning the URL to fetch it from.
+
+   A background thread accepts a single connection, reads the request
+   headers, and replies with the file bytes (Content-Length set).  The
+   binary socket is wrapped in a latin-1 flexi-stream so arbitrary
+   bytes round-trip unchanged.  The caller fetches the URL; the thread
+   finishes on its own."
+  (let* ((server (usocket:socket-listen "127.0.0.1" 0 :reuse-address t))
+         (port (usocket:get-local-port server))
+         (url (format nil "http://127.0.0.1:~d/~a"
+                      port (file-namestring path))))
+    (bt:make-thread
+      (lambda ()
+        (unwind-protect
+            (handler-case
+                (let* ((conn (usocket:socket-accept
+                               server :element-type '(unsigned-byte 8)))
+                       (binary (usocket:socket-stream conn))
+                       (stream (flexi-streams:make-flexi-stream
+                                 binary :external-format :latin-1)))
+                  (unwind-protect
+                      (progn
+                        ;; Read the request headers until the blank line.
+                        (loop for line = (read-line stream nil nil)
+                              while (and line
+                                         (plusp (length
+                                                  (string-trim
+                                                    '(#\Return #\Newline)
+                                                    line)))))
+                        (let* ((octets (read-file-bytes path))
+                               (crlf (format nil "~C~C" #\Return #\Newline))
+                               (header (concatenate
+                                         'string
+                                         "HTTP/1.1 200 OK" crlf
+                                         "Content-Length: "
+                                         (write-to-string (length octets))
+                                         crlf "Connection: close" crlf crlf)))
+                          (write-string header stream)
+                          (write-string (map 'string #'code-char octets)
+                                        stream)
+                          (finish-output stream)))
+                    (ignore-errors (close stream))))
+              (error () nil))
+          (ignore-errors (usocket:socket-close server))))
+      :name "zick-test-http")
+    url))
 
 ;;; Graph linearization (zic's package_test.clj)
 
@@ -431,6 +518,224 @@
             (is string= "b" (getf (first dependers) :name))))
       (uiop:delete-directory-tree root :validate t))))
 
+;;; Downloading (local HTTP server)
+
+(defun write-source-fixture (src files)
+  "Write FILES (alist of path to content) under SRC."
+  (ensure-directories-exist src)
+  (dolist (pair files)
+    (write-text-bytes (merge-pathnames (car pair) src)
+                      (cdr pair)))
+  src)
+
+(define-test install-package-downloads-from-url
+  :parent nil
+  "install-package with :download-package downloads the archive from
+   the URL, unpacks it into the project, records the files, and keeps
+   the staged zip in the staging directory."
+  (let* ((root (temporary-dir "zick-download"))
+         (src (source-dir root))
+         (proj (project-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")
+                                  ("conf.txt" . "new config")))
+                     "pkg.zip"))
+         (url (http-serve-once zip-path))
+         (opts (download-install-options proj url "a"
+                                         :metadata (config-metadata))))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (ensure-directories-exist proj)
+          ;; conf.txt already exists in the project: it is put aside.
+          (write-text-file (merge-pathnames "conf.txt" proj)
+                           "keep me")
+          (package:install-package opts)
+          ;; The package and its files were recorded.
+          (let ((info (package:get-package-info opts)))
+            (is string= "a" (getf info :name))
+            (is string= url (getf info :location)))
+          (let* ((files (package:get-package-files opts))
+                 (paths (mapcar (lambda (p) (getf p :path)) files)))
+            (is = 2 (length files))
+            (true (member "app.txt" paths :test #'string=))
+            (true (member "conf.txt" paths :test #'string=)))
+          ;; The archive was unpacked into the project; the existing
+          ;; conf.txt was left alone and the incoming one put aside.
+          (is string= "app content"
+              (read-text-file (merge-pathnames "app.txt" proj)))
+          (is string= "keep me"
+              (read-text-file (merge-pathnames "conf.txt" proj)))
+          (is string= "new config"
+              (read-text-file
+                (merge-pathnames "conf.txt.a.0.1.0.new" proj)))
+          ;; The staged zip was kept in the staging directory.
+          (true (uiop:file-exists-p
+                  (merge-pathnames "pkg.zip"
+                                   (merge-pathnames "staging/" proj)))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test download-package-fetches-to-staging
+  :parent nil
+  "download-package downloads the URL to the staging directory under
+   the URL's last path component and returns an open zip of it."
+  (let* ((root (temporary-dir "zick-dl-stage"))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")))
+                     "pkg.zip"))
+         (url (http-serve-once zip-path))
+         (staging (merge-pathnames "staging/" root))
+         (opts (list :package-name "a"
+                     :package-version "0.1.0"
+                     :package-location url
+                     :staging-path staging)))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (let ((zip (package:download-package opts)))
+            (unwind-protect
+                (let ((contents (fs:archive-contents zip)))
+                  (is = 1 (length contents))
+                  (is string= "app.txt"
+                      (getf (first contents) :path)))
+              (close zip)))
+          ;; Staged under the URL's last path component.
+          (true (uiop:file-exists-p
+                  (merge-pathnames "pkg.zip" staging))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test download-package-fallback-filename
+  :parent nil
+  "download-package names the staged file NAME-VERSION.zip when the
+   URL has no path component."
+  (let* ((root (temporary-dir "zick-dl-fallback"))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")))
+                     "pkg.zip"))
+         (staging (merge-pathnames "staging/" root))
+         (url (http-serve-once zip-path))
+         (bare-url (concatenate
+                     'string
+                     (subseq url 0 (position #\/ url :from-end t))
+                     "/"))
+         (opts (list :package-name "a"
+                     :package-version "0.1.0"
+                     :package-location bare-url
+                     :staging-path staging)))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (let ((zip (package:download-package opts)))
+            (unwind-protect
+                (let ((contents (fs:archive-contents zip)))
+                  (is = 1 (length contents)))
+              (close zip)))
+          (true (uiop:file-exists-p
+                  (merge-pathnames "a-0.1.0.zip" staging))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test download-package-requires-name-version-location
+  :parent nil
+  "download-package signals unless name, version, and location are all
+   given."
+  (let* ((root (temporary-dir "zick-dl-required"))
+         (staging (merge-pathnames "staging/" root)))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (true (handler-case
+                    (progn
+                      (package:download-package
+                        (list :package-name "a"
+                              :package-version "0.1.0"
+                              :staging-path staging))
+                      nil)
+                  (error (e)
+                    (search "must all be given"
+                            (princ-to-string e))))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+;;; On-disk upgrade and removal effects
+
+(defun seed-store (root store)
+  "Persist STORE at ROOT's .zick-db directory (the connection string
+   install-options uses)."
+  (ensure-directories-exist (merge-pathnames ".zick-db/" root))
+  (db:save-store (merge-pathnames ".zick-db/packages.nrdl" root)
+                 store))
+
+(define-test install-package-upgrade-backs-up-on-disk
+  :parent nil
+  "Upgrading via download backs up old config files absent from the
+   new version on disk (as name.version.backup), deletes old normal
+   files, puts aside edited configs, and unpacks the new files."
+  (let* ((root (temporary-dir "zick-upgrade-dl"))
+         (proj (project-dir root))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "new app")
+                                  ("conf.txt" . "new config")))
+                     "pkg.zip"))
+         (url (http-serve-once zip-path))
+         (opts (download-install-options proj url "a"
+                                         :version "0.2.0"
+                                         :metadata (config-metadata)))
+         (old-store
+           (store-with-files
+             "a" "0.1.0"
+             (list (list :path "conf.txt" :size 10
+                         :is-directory nil
+                         :checksum "old-checksum")
+                   (list :path "oldconf.txt" :size 9
+                         :is-directory nil
+                         :checksum "oldconf-checksum")
+                   (list :path "app.txt" :size 5
+                         :is-directory nil
+                         :checksum "app-checksum"))
+             :config-files '("conf.txt" "oldconf.txt"))))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (ensure-directories-exist proj)
+          (seed-store proj old-store)
+          ;; The old version's files on disk, conf.txt locally edited.
+          (write-text-file (merge-pathnames "conf.txt" proj)
+                           "current config")
+          (write-text-file (merge-pathnames "oldconf.txt" proj)
+                           "old conf")
+          (write-text-file (merge-pathnames "app.txt" proj)
+                           "old app")
+          (package:install-package opts)
+          ;; oldconf.txt is not in the new version: it was backed up
+          ;; on disk, pinning fs:backup-all with fset sets.
+          (true (not (uiop:file-exists-p
+                       (merge-pathnames "oldconf.txt" proj))))
+          (is string= "old conf"
+              (read-text-file
+                (merge-pathnames "oldconf.txt.a.0.1.0.backup" proj)))
+          ;; The old normal file was deleted and the new one unpacked.
+          (is string= "new app"
+              (read-text-file (merge-pathnames "app.txt" proj)))
+          ;; conf.txt was edited on disk: it is kept and the incoming
+          ;; one was put aside next to it.
+          (is string= "current config"
+              (read-text-file (merge-pathnames "conf.txt" proj)))
+          (is string= "new config"
+              (read-text-file
+                (merge-pathnames "conf.txt.a.0.2.0.new" proj))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
 ;;; remove-package
 
 (define-test remove-package-removes
@@ -522,6 +827,43 @@
             (true (not (null
                          (package:get-package-info opts-dry))))))
       (uiop:delete-directory-tree root :validate t))))
+
+(define-test remove-package-backs-up-config-files
+  :parent nil
+  "remove-package backs up an installed package's config files on
+   disk (as name.version.backup) and deletes its normal files."
+  (let* ((root (temporary-dir "zick-remove-cfg"))
+         (proj (project-dir root))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")
+                                  ("conf.txt" . "config content")))
+                     "pkg.zip"))
+         (url (http-serve-once zip-path))
+         (opts (download-install-options proj url "a"
+                                         :metadata (config-metadata))))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (ensure-directories-exist proj)
+          (package:install-package opts)
+          ;; Both files are on disk after the download install.
+          (true (uiop:file-exists-p
+                  (merge-pathnames "app.txt" proj)))
+          (true (uiop:file-exists-p
+                  (merge-pathnames "conf.txt" proj)))
+          (package:remove-package opts)
+          ;; The config file was backed up, the normal file deleted.
+          (true (not (uiop:file-exists-p
+                       (merge-pathnames "conf.txt" proj))))
+          (is string= "config content"
+              (read-text-file
+                (merge-pathnames "conf.txt.a.0.1.0.backup" proj)))
+          (true (not (uiop:file-exists-p
+                       (merge-pathnames "app.txt" proj)))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
 
 ;;; verify-package-files
 

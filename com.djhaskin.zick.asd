@@ -37,6 +37,10 @@
   :depends-on (
                "com.djhaskin.zick"
                "parachute"
+               ;; Throwaway HTTP server for the download-package tests
+               "usocket"
+               "bordeaux-threads"
+               "flexi-streams"
                )
   :components ((:module "tests"
                 :components
