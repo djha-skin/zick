@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Port of `zic.fs`: archive handling via zippy, SHA-256/CRC-32 via
   ironclad, downloads via dexador/quri, and `.zic-db` marking-file
   search, with a Parachute test suite (60 assertions).
+- Port of `zic.db`: the package/file store as FSet persistent records
+  (`package-record`/`file`/`store`) serialized to a single NRDL
+  document via `slurp-store`/`save-store` (atomic temp + rename),
+  with the full query and mutation API (package-id, package-info,
+  package-files, owned-by-p, dependers/dependees, add-package,
+  insert-file/use, remove-package/files/uses) and a Parachute test
+  suite (82 assertions).
 
 ### Changed
 
