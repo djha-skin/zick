@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.zick-db/packages.nrdl`), `with-filelock` (a lock file whose
   existence is the lock, created atomically and removed on close,
   with zic's descriptive error text adapted to zick), and
+- Black-box test environment: a python3 HTTPS fixture server with a
+  self-signed certificate (optional basic auth, user `mode` password
+  `code`) serving a wwwroot of `a.zip`/`b.zip`/`c.zip`/`bad.zip`
+  (the last with a corrupted entry for CRC-violation testing), plus
+  dsolv-style POSIX shell scripts (`tests/resources/scripts/test-*`)
+  covering init/add/info/files/verify (exit codes 0/3/4)/remove/
+  dependers/dependees, run by `make test-black-box`.
   `path-to-connection-string`, with a Parachute test suite (18
   assertions) including a cross-process lock-contention test.
 - Port of `zic.package`: install/remove/verify of packages against

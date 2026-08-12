@@ -1,0 +1,16 @@
+#!/bin/sh
+# Black-box test: `zick init` creates the .zick-db store and exits 0.
+# Run from the project root (see test-all).
+set -eu
+
+root_path=${PWD}
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+test_home=${root_path}/tests/resources/data/init
+
+rm -rf "${test_home}"
+mkdir -p "${test_home}/proj"
+
+"${runthis}" init -d "${test_home}/proj" > "${test_home}/out.nrdl" 2>&1
+grep -q 'status successful' "${test_home}/out.nrdl"
+[ -d "${test_home}/proj/.zick-db" ]
+echo "test-init: ok"

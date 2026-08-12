@@ -1,0 +1,28 @@
+#!/bin/sh
+# Black-box test: `zick info` shows a package's name, version, and
+# location; a package that was never installed reports not-found.
+# Run from the project root (see test-all).
+set -eu
+
+root_path=${PWD}
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+fixture_url=${FIXTURE_URL:-https://127.0.0.1:8443}
+test_home=${root_path}/tests/resources/data/info
+
+rm -rf "${test_home}"
+mkdir -p "${test_home}/proj"
+
+"${runthis}" init -d "${test_home}/proj" > /dev/null 2>&1
+"${runthis}" add -d "${test_home}/proj" \
+    -k a -V 0.1.0 -l "${fixture_url}/a.zip" -n > /dev/null 2>&1
+
+"${runthis}" info -d "${test_home}/proj" -k a \
+    > "${test_home}/info.nrdl" 2>&1
+grep -q 'result package-found' "${test_home}/info.nrdl"
+grep -q 'name "a"' "${test_home}/info.nrdl"
+grep -q 'version "0.1.0"' "${test_home}/info.nrdl"
+
+"${runthis}" info -d "${test_home}/proj" -k ghost \
+    > "${test_home}/ghost.nrdl" 2>&1
+grep -q 'result not-found' "${test_home}/ghost.nrdl"
+echo "test-info: ok"

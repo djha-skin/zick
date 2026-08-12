@@ -1,0 +1,31 @@
+#!/bin/sh
+# Black-box test: `zick add` downloads a package over TLS (insecure),
+# unpacks it into the project, and records it.  Also verifies that a
+# corrupted archive (bad.zip) is rejected with a CRC-violation error.
+# Run from the project root (see test-all).
+set -eu
+
+root_path=${PWD}
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+fixture_url=${FIXTURE_URL:-https://127.0.0.1:8443}
+test_home=${root_path}/tests/resources/data/add
+
+rm -rf "${test_home}"
+mkdir -p "${test_home}/proj"
+
+"${runthis}" init -d "${test_home}/proj" > /dev/null 2>&1
+
+"${runthis}" add -d "${test_home}/proj" \
+    -k a -V 0.1.0 -l "${fixture_url}/a.zip" -n \
+    > "${test_home}/add.nrdl" 2>&1
+grep -q 'result successful' "${test_home}/add.nrdl"
+[ -f "${test_home}/proj/a/poem.txt" ]
+grep -q 'stop this feeling' "${test_home}/proj/a/poem.txt"
+
+# A corrupted archive is rejected with a CRC violation error.
+"${runthis}" add -d "${test_home}/proj" \
+    -k bad -V 0.1.0 -l "${fixture_url}/bad.zip" -n \
+    > "${test_home}/bad.nrdl" 2>&1 \
+    && { echo "test-add: bad.zip unexpectedly accepted" >&2; exit 1; }
+grep -q 'CRC violations' "${test_home}/bad.nrdl"
+echo "test-add: ok"

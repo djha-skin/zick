@@ -1,0 +1,42 @@
+#!/bin/sh
+# Black-box test: `zick verify` exits 0 when a package's files are
+# correct, 3 when the package is not installed, and 4 when a file has
+# been tampered with.  Run from the project root (see test-all).
+set -eu
+
+root_path=${PWD}
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+fixture_url=${FIXTURE_URL:-https://127.0.0.1:8443}
+test_home=${root_path}/tests/resources/data/verify
+
+rm -rf "${test_home}"
+mkdir -p "${test_home}/proj"
+
+"${runthis}" init -d "${test_home}/proj" > /dev/null 2>&1
+"${runthis}" add -d "${test_home}/proj" \
+    -k a -V 0.1.0 -l "${fixture_url}/a.zip" -n > /dev/null 2>&1
+
+# Correct files: exit 0.
+"${runthis}" verify -d "${test_home}/proj" -k a \
+    > "${test_home}/ok.nrdl" 2>&1
+grep -q 'result package-found' "${test_home}/ok.nrdl"
+grep -Fq 'verification-results [' "${test_home}/ok.nrdl"
+
+# Not installed: exit 3.
+set +e
+"${runthis}" verify -d "${test_home}/proj" -k ghost \
+    > "${test_home}/ghost.nrdl" 2>&1
+ghost_exit=$?
+set -e
+[ "${ghost_exit}" -eq 3 ]
+
+# Tampered file: exit 4.
+echo 'tampered' > "${test_home}/proj/a/poem.txt"
+set +e
+"${runthis}" verify -d "${test_home}/proj" -k a \
+    > "${test_home}/tampered.nrdl" 2>&1
+tampered_exit=$?
+set -e
+[ "${tampered_exit}" -eq 4 ]
+grep -q 'verification-failed' "${test_home}/tampered.nrdl"
+echo "test-verify: ok"

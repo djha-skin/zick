@@ -1,0 +1,87 @@
+#!/bin/sh
+# Run every zick black-box shell integration test from the project
+# root: build the fixture environment, start the fixture HTTPS server,
+# and run each test-* script against the built zick binary.
+#
+# Usage: ./tests/resources/scripts/test-all [--require-auth]
+# Env:   ZICK_BIN  path to the built binary (default ./com.djhaskin.zick)
+#        FIXTURE_URL  base URL of the fixture server
+#        FIXTURE_PORT  port for the fixture server (default 8443)
+set -eu
+
+require_auth=0
+if [ "${1:-}" = "--require-auth" ]; then
+    require_auth=1
+fi
+
+root_path=${PWD}
+fixture_path=${root_path}/tests/resources/fixture
+scripts_path=${root_path}/tests/resources/scripts
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+port=${FIXTURE_PORT:-8443}
+
+if [ ! -x "${runthis}" ]; then
+    echo "zick binary not found at ${runthis}; run ./scripts/build first." >&2
+    exit 1
+fi
+
+# Fixture environment: wwwroot zips and the self-signed certificate.
+"${fixture_path}/make-fixtures.sh"
+
+# Start the fixture server and run every test script.
+fixture_server_log=/tmp/zick-fixture-server.log
+if [ "${require_auth}" -eq 1 ]; then
+    "${fixture_path}/fixture-server.py" \
+        --port "${port}" \
+        --wwwroot "${fixture_path}/wwwroot" \
+        --cert "${fixture_path}/server.pem" \
+        --require-auth \
+        > "${fixture_server_log}" 2>&1 &
+else
+    "${fixture_path}/fixture-server.py" \
+        --port "${port}" \
+        --wwwroot "${fixture_path}/wwwroot" \
+        --cert "${fixture_path}/server.pem" \
+        > "${fixture_server_log}" 2>&1 &
+fi
+server_pid=$!
+trap 'kill "${server_pid}" 2>/dev/null || true' EXIT INT TERM
+
+export ZICK_BIN=${runthis}
+export FIXTURE_URL=${FIXTURE_URL:-https://127.0.0.1:${port}}
+# Wait until the server actually answers, not just that the process is
+# alive (python's ssl import + bind can outlast a fixed sleep).
+ready=0
+attempts=0
+while [ "${attempts}" -lt 50 ]; do
+    if curl -sk --max-time 2 -o /dev/null \
+        "${FIXTURE_URL}/a.zip" 2>/dev/null; then
+        ready=1
+        break
+    fi
+    attempts=$((attempts + 1))
+    sleep 0.2
+done
+if [ "${ready}" -eq 0 ]; then
+    echo "fixture server failed to answer; see ${fixture_server_log}" >&2
+    cat "${fixture_server_log}" >&2
+    exit 1
+fi
+
+failures=0
+for script in "${scripts_path}"/test-*; do
+    if [ "${script}" != "${scripts_path}/test-all" ]; then
+        echo "==> $(basename "${script}")"
+        if ! "${script}"; then
+            echo "FAILED: ${script}" >&2
+            failures=$((failures + 1))
+        fi
+    fi
+done
+
+if [ "${failures}" -eq 0 ]; then
+    echo "test-all: all black-box tests passed"
+else
+    echo "test-all: ${failures} black-box test(s) failed" >&2
+    exit 1
+fi

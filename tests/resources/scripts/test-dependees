@@ -1,0 +1,28 @@
+#!/bin/sh
+# Black-box test: `zick dependees` lists the packages the given one
+# depends on.  Run from the project root (see test-all).
+set -eu
+
+root_path=${PWD}
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+fixture_url=${FIXTURE_URL:-https://127.0.0.1:8443}
+test_home=${root_path}/tests/resources/data/dependees
+
+rm -rf "${test_home}"
+mkdir -p "${test_home}/proj"
+
+"${runthis}" init -d "${test_home}/proj" > /dev/null 2>&1
+"${runthis}" add -d "${test_home}/proj" \
+    -k a -V 0.1.0 -l "${fixture_url}/a.zip" -n > /dev/null 2>&1
+"${runthis}" add -d "${test_home}/proj" \
+    -k b -V 0.1.0 -l "${fixture_url}/b.zip" -n -u a > /dev/null 2>&1
+
+"${runthis}" dependees -d "${test_home}/proj" -k b \
+    > "${test_home}/dependees.nrdl" 2>&1
+grep -q 'result package-found' "${test_home}/dependees.nrdl"
+grep -q 'name "a"' "${test_home}/dependees.nrdl"
+
+"${runthis}" dependees -d "${test_home}/proj" -k ghost \
+    > "${test_home}/ghost.nrdl" 2>&1
+grep -q 'result not-found' "${test_home}/ghost.nrdl"
+echo "test-dependees: ok"
