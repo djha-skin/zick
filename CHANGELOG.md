@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with zic's descriptive error text adapted to zick), and
   `path-to-connection-string`, with a Parachute test suite (18
   assertions) including a cross-process lock-contention test.
+- Port of `zic.package`: install/remove/verify of packages against
+  the NRDL store, with config-file upgrade precautions
+  (install/put-aside/do-nothing fates and in-place and downgrade
+  guards via svers' debian-vercmp), zip-based installs via zippy,
+  dependency-aware removal (cascade vs refuse, dry-run, sink-first
+  linearization), file-conflict and checksum verification, and the
+  package query API, with a Parachute test suite (71 assertions).
 
 ### Changed
 

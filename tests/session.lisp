@@ -193,7 +193,8 @@
                      ;; No store file was written.
                      (true (null (uiop:file-exists-p
                                    (merge-pathnames "packages.nrdl" dir)))))
-                 (uiop:delete-directory-tree dir :validate t))))
+                 (uiop:delete-directory-tree dir :validate t
+                                             :if-does-not-exist :ignore))))
 
 ;;; with-zic-session
 

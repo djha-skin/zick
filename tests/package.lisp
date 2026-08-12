@@ -1,0 +1,584 @@
+;;;; tests/package.lisp
+;;;;
+;;;; Unit and integration tests for the ported package layer in
+;;;; src/package.lisp, mirroring zic's test/zic/package_test.clj and
+;;;; exercising install/remove/verify against real temporary stores.
+
+(defpackage #:com.djhaskin.zick/tests/package
+  (:use #:cl)
+  (:import-from #:com.djhaskin.zick/package
+    #:verify-package-files
+    #:get-package-info
+    #:get-package-dependees
+    #:get-package-dependers
+    #:decide-config-fate
+    #:package-file-conflicts
+    #:config-and-upgrade-precautions
+    #:install-package
+    #:remove-package
+    #:linearize)
+  (:import-from #:com.djhaskin.zick/db)
+  (:import-from #:com.djhaskin.zick/fs)
+  (:import-from #:fset)
+  (:import-from #:uiop)
+  (:import-from #:org.shirakumo.zippy
+    #:compress-zip
+    #:with-zip-file)
+  (:import-from #:parachute
+    #:define-test
+    #:is
+    #:true)
+  (:local-nicknames
+    (#:package #:com.djhaskin.zick/package)
+    (#:db #:com.djhaskin.zick/db)
+    (#:fs #:com.djhaskin.zick/fs)
+    (#:f #:fset)))
+
+(in-package #:com.djhaskin.zick/tests/package)
+
+;;; Test helpers
+
+;;; SHA-256("hello"), a well-known test vector.
+(defparameter *sha256-hello*
+  "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+
+(defun temporary-dir (prefix)
+  "A fresh temporary directory path with PREFIX, not yet created."
+  (uiop:ensure-directory-pathname
+    (merge-pathnames
+      (format nil "~a-~d/" prefix (random 1000000))
+      (uiop:temporary-directory))))
+
+(defun write-text-file (path text)
+  "Write TEXT to the file at PATH."
+  (with-open-file (out path :direction :output
+                       :if-exists :supersede
+                       :if-does-not-exist :create)
+    (write-string text out)))
+
+(defun write-text-bytes (path text)
+  "Write TEXT to the file at PATH as raw bytes (for zip fixtures)."
+  (with-open-file (out path :direction :output
+                       :if-exists :supersede
+                       :if-does-not-exist :create
+                       :element-type '(unsigned-byte 8))
+    (write-sequence (map '(simple-array (unsigned-byte 8) (*))
+                         (lambda (char) (char-code char))
+                         text)
+                    out)))
+
+(defun config-metadata ()
+  "A metadata map declaring conf.txt a config file."
+  (f:map (:zic
+           (f:map (:config-files
+                    (f:convert 'fset:seq '("conf.txt")))))))
+
+(defun project-dir (root)
+  "The project directory under ROOT."
+  (merge-pathnames "proj/" root))
+
+(defun source-dir (root)
+  "The package source directory under ROOT."
+  (merge-pathnames "pkg-src/" root))
+
+(defun install-options (root package-name &key (version "0.1.0")
+                        (dependencies nil)
+                        (metadata nil)
+                        (download-package nil)
+                        (location
+                          "https://example.com/pkg.zip"))
+  "Return an options plist installing PACKAGE-NAME into the project
+   rooted at ROOT."
+  (list :package-name package-name
+        :package-version version
+        :package-location location
+        :package-metadata metadata
+        :package-dependency dependencies
+        :download-package download-package
+        :db-connection-string
+        (uiop:native-namestring (merge-pathnames ".zick-db/" root))
+        :root-path root
+        :lock-path (merge-pathnames "zick.lock" root)))
+
+(defun make-zip (root source-dir zip-name)
+  "Zip SOURCE-DIR (with names relative to it) to ZIP-NAME under ROOT."
+  (compress-zip (uiop:ensure-directory-pathname source-dir)
+                (merge-pathnames zip-name root)
+                :strip-root t
+                :if-exists :supersede)
+  (merge-pathnames zip-name root))
+
+(defun precautions-options (root name version)
+  "An options plist for a precaution test of NAME VERSION at ROOT."
+  (list :package-name name
+        :package-version version
+        :package-metadata (config-metadata)
+        :root-path root))
+
+(defun store-with-files (name version files)
+  "A store with package NAME VERSION owning FILES."
+  (db:add-package (db:empty-store)
+                  (list :package-name name
+                        :package-version version
+                        :package-location "loc"
+                        :package-metadata (config-metadata))
+                  files
+                  nil))
+
+(defun config-store (name version)
+  "A store with package NAME VERSION owning one config file."
+  (store-with-files
+    name version
+    (list (list :path "conf.txt" :size 10
+                :is-directory nil :checksum "old"))))
+
+(defun asserts-refusal (options store zip-path search-text)
+  "True when config-and-upgrade-precautions on ZIP-PATH signals an
+   error containing SEARCH-TEXT."
+  (with-zip-file (zf zip-path)
+    (handler-case
+        (progn
+          (package:config-and-upgrade-precautions
+            options store zf (fs:archive-contents zf))
+          nil)
+      (error (e)
+        (search search-text (princ-to-string e))))))
+
+;;; Graph linearization (zic's package_test.clj)
+
+(defun fighter (node)
+  "The fighter graph from zic's tests."
+  (cdr (assoc node '((:c . (:a :b))
+                     (:m . (:n :o :p))
+                     (:n)
+                     (:o)
+                     (:p)
+                     (:u . (:v :w :x))
+                     (:v)
+                     (:w)
+                     (:x)
+                     (:b . (:a :d))
+                     (:d . (:e))
+                     (:e)
+                     (:a . (:u))))))
+
+(defun basic (node)
+  "The basic graph from zic's tests."
+  (cdr (assoc node '((:c . (:a :b)) (:b . (:a)) (:a)))))
+
+(defun no-edges (node)
+  "A graph with no edges."
+  (declare (ignore node))
+  nil)
+
+(defun cycle-case (node)
+  "The cycle graph from zic's tests."
+  (cdr (assoc node '((:c . (:a :b)) (:b . (:a)) (:a . (:b))))))
+
+(define-test linearize-empty
+             :parent nil
+             "linearize of a lone node is that node."
+             (is equal '(:c) (package:linearize #'no-edges :c)))
+
+(define-test linearize-basic
+             :parent nil
+             "linearize lists sinks first in a chain."
+             (is equal '(:a :b :c) (package:linearize #'basic :c)))
+
+(define-test linearize-fighter
+             :parent nil
+             "linearize walks the fighter graph, sinks first."
+             (is equal '(:e :v :w :x :d :u :a :b :c)
+                 (package:linearize #'fighter :c)))
+
+(define-test linearize-cycle
+             :parent nil
+             "linearize breaks a cycle by listing all remaining nodes at once."
+             (is equal '(:a :b :c) (package:linearize #'cycle-case :c)))
+
+;;; decide-config-fate
+
+(define-test decide-config-fate
+             :parent nil
+             "decide-config-fate classifies the four config-file situations."
+             (is eq :install (package:decide-config-fate "old" nil "new"))
+             (is eq :put-aside (package:decide-config-fate nil "cur" "new"))
+             (is eq :do-nothing (package:decide-config-fate "old" "cur" nil))
+             ;; current differs from both old and new: keep it, stash the new.
+             (is eq :put-aside (package:decide-config-fate "old" "cur" "new"))
+             ;; current was locally edited but the archive matches old: keep it.
+             (is eq :do-nothing (package:decide-config-fate "old" "cur" "old"))
+             ;; otherwise install.
+             (is eq :install (package:decide-config-fate "same" "same" "new"))
+             (is eq :install (package:decide-config-fate "same" "same" "same")))
+
+;;; package-file-conflicts
+
+(define-test package-file-conflicts
+             :parent nil
+             "package-file-conflicts flags files owned by other packages."
+             (let* ((store (db:add-package
+                             (db:empty-store)
+                             (list :package-name "a"
+                                   :package-version "0.1.0"
+                                   :package-location "loc"
+                                   :package-metadata nil)
+                             (list (list :path "f.txt"
+                                         :size 1
+                                         :is-directory nil
+                                         :checksum "c"))
+                             nil))
+                    (new-files (list (list :path "f.txt"
+                                           :is-directory nil))))
+               ;; The owning package itself is not a conflict.
+               (is equal '()
+                   (package:package-file-conflicts store "a" new-files))
+               ;; Another package is, and the conflict names the owner.
+               (let ((conflicts (package:package-file-conflicts
+                                  store "b" new-files)))
+                 (is = 1 (length conflicts))
+                 (is string= "a" (getf (first conflicts) :package))
+                 (is string= "f.txt" (getf (first conflicts) :path)))
+               ;; Directory entries are skipped.
+               (is equal '()
+                   (package:package-file-conflicts
+                     store "b" (list (list :path "f.txt"
+                                           :is-directory t))))))
+
+;;; config-and-upgrade-precautions
+
+(define-test config-precautions-fresh-install
+             :parent nil
+             "A fresh install puts aside config files already present on disk."
+             (let* ((root (temporary-dir "zick-fresh-install"))
+                    (proj (project-dir root))
+                    (options (precautions-options proj "a" "0.2.0")))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (ensure-directories-exist proj)
+                     (write-text-file (merge-pathnames "conf.txt" proj)
+                                      "keep me")
+                     (multiple-value-bind (precautions updated-store)
+                         (package:config-and-upgrade-precautions
+                           options (db:empty-store) nil '())
+                       (true (f:contains?
+                               (getf precautions :put-aside)
+                               "conf.txt"))
+                       (true (null (getf precautions :config-sums)))
+                       (true (db:store-p updated-store))))
+                 (uiop:delete-directory-tree root :validate t
+                                             :if-does-not-exist :ignore))))
+
+(define-test config-precautions-upgrade
+             :parent nil
+             "Upgrading puts aside a config file differing from both the old and
+   new checksums, deletes the old normal files, and clears the old
+   package's records."
+             (let* ((root (temporary-dir "zick-upgrade"))
+                    (proj (project-dir root))
+                    (src (source-dir root))
+                    (metadata (config-metadata))
+                    (old-store
+                      (store-with-files
+                        "a" "0.1.0"
+                        (list (list :path "conf.txt" :size 10
+                                    :is-directory nil
+                                    :checksum "old-checksum")
+                              (list :path "app.txt" :size 5
+                                    :is-directory nil
+                                    :checksum "app-checksum")))))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (ensure-directories-exist src)
+                     (write-text-bytes (merge-pathnames "conf.txt" src)
+                                       "new config")
+                     (write-text-bytes (merge-pathnames "app.txt" src) "app")
+                     (ensure-directories-exist proj)
+                     (write-text-file (merge-pathnames "conf.txt" proj)
+                                      "current config")
+                     (write-text-file (merge-pathnames "app.txt" proj)
+                                      "old app")
+                     (let* ((zip-path (make-zip root src "pkg.zip"))
+                            (options (precautions-options proj "a" "0.2.0")))
+                       (with-zip-file (zf zip-path)
+                         (multiple-value-bind (precautions updated-store)
+                             (package:config-and-upgrade-precautions
+                               options old-store zf
+                               (fs:archive-contents zf))
+                           ;; conf.txt differs from both old and new.
+                           (true (f:contains?
+                                   (getf precautions :put-aside)
+                                   "conf.txt"))
+                           ;; The old config checksum is pooled for the unpack.
+                           (is string= "old-checksum"
+                               (f:lookup (getf precautions :config-sums)
+                                         "conf.txt"))
+                           ;; The old package's records are gone from the store.
+                           (true (null (db:owned-by-p
+                                         updated-store "conf.txt")))
+                           (is = 0 (length (db:package-files
+                                             updated-store "a")))
+                           ;; The old normal file was deleted from disk.
+                           (true (not (uiop:file-exists-p
+                                        (merge-pathnames "app.txt" proj))))))))
+                 (uiop:delete-directory-tree root :validate t
+                                             :if-does-not-exist :ignore))))
+
+(define-test config-precautions-refuses-inplace
+             :parent nil
+             "Replacing a package with the same version is refused unless
+   :ALLOW-INPLACE is set."
+             (let* ((root (temporary-dir "zick-inplace"))
+                    (src (source-dir root))
+                    (store (config-store "a" "0.1.0"))
+                    (options (list :package-name "a"
+                                   :package-version "0.1.0"
+                                   :package-metadata (config-metadata)
+                                   :root-path (project-dir root))))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (ensure-directories-exist src)
+                     (write-text-bytes (merge-pathnames "conf.txt" src) "new")
+                     (let ((zip-path (make-zip root src "pkg.zip")))
+                       (true (asserts-refusal
+                               options store zip-path "allow-inplace"))))
+                 (uiop:delete-directory-tree root :validate t
+                                             :if-does-not-exist :ignore))))
+
+(define-test config-precautions-refuses-downgrade
+             :parent nil
+             "Installing an older version is refused unless :ALLOW-DOWNGRADES is
+   set."
+             (let* ((root (temporary-dir "zick-downgrade"))
+                    (src (source-dir root))
+                    (store (config-store "a" "0.2.0"))
+                    (options (list :package-name "a"
+                                   :package-version "0.1.0"
+                                   :package-metadata (config-metadata)
+                                   :root-path (project-dir root))))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (ensure-directories-exist src)
+                     (write-text-bytes (merge-pathnames "conf.txt" src) "new")
+                     (let ((zip-path (make-zip root src "pkg.zip")))
+                       (true (asserts-refusal
+                               options store zip-path "allow-downgrades"))))
+                 (uiop:delete-directory-tree root :validate t
+                                             :if-does-not-exist :ignore))))
+
+;;; install-package
+
+(define-test install-package-records-package
+             :parent nil
+             "install-package records a package (with files when downloading is
+   disabled, just the record) and persists it to the store file."
+             (let* ((root (temporary-dir "zick-install"))
+                    (opts (install-options root "a")))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (package:install-package opts)
+                     (let ((info (package:get-package-info opts)))
+                       (is string= "a" (getf info :name))
+                       (is string= "0.1.0" (getf info :version))
+                       (is string= "https://example.com/pkg.zip"
+                           (getf info :location)))
+                     (true (uiop:file-exists-p
+                             (merge-pathnames ".zick-db/packages.nrdl" root))))
+                 (uiop:delete-directory-tree root :validate t))))
+
+(define-test install-package-unmet-dependency
+             :parent nil
+             "install-package refuses to install when a dependency is missing."
+             (let* ((root (temporary-dir "zick-unmet"))
+                    (opts (install-options root "b"
+                                           :dependencies (list "a"))))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (true (handler-case
+                               (progn (package:install-package opts) nil)
+                             (error (e)
+                               (search "Several dependencies are unmet"
+                                       (princ-to-string e))))))
+                 (uiop:delete-directory-tree root :validate t))))
+
+(define-test install-package-met-dependency
+             :parent nil
+             "install-package records the dependency of a package."
+             (let* ((root (temporary-dir "zick-met"))
+                    (opts-a (install-options root "a")))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (package:install-package opts-a)
+                     (let* ((opts-b
+                              (install-options root "b"
+                                               :dependencies (list "a"))))
+                       (package:install-package opts-b)
+                       (let* ((dependees
+                                (package:get-package-dependees opts-b)))
+                         (is = 1 (length dependees))
+                         (is string= "a" (getf (first dependees) :name))))
+                     (let* ((dependers
+                              (package:get-package-dependers
+                                (install-options root "a"))))
+                       (is = 1 (length dependers))
+                       (is string= "b" (getf (first dependers) :name))))
+                 (uiop:delete-directory-tree root :validate t))))
+
+;;; remove-package
+
+(define-test remove-package-removes
+             :parent nil
+             "remove-package returns the removed package and persists the
+   removal."
+             (let* ((root (temporary-dir "zick-remove"))
+                    (opts (install-options root "a")))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (package:install-package opts)
+                     (let ((removed (package:remove-package opts)))
+                       (is = 1 (length removed))
+                       (is string= "a" (getf (first removed) :name))
+                       (true (null (package:get-package-info opts)))))
+                 (uiop:delete-directory-tree root :validate t))))
+
+(define-test remove-package-not-found
+             :parent nil
+             "remove-package returns nil for a package that is not installed."
+             (let* ((root (temporary-dir "zick-remnot"))
+                    (opts (install-options root "nope")))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (true (null (package:remove-package opts))))
+                 (uiop:delete-directory-tree root :validate t))))
+
+(define-test remove-package-refuses-with-dependers
+             :parent nil
+             "remove-package without :CASCADE refuses when other packages depend
+   on the one to be removed."
+             (let* ((root (temporary-dir "zick-refuse"))
+                    (opts-a (install-options root "a")))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (package:install-package opts-a)
+                     (package:install-package
+                       (install-options root "b"
+                                         :dependencies (list "a")))
+                     (true (handler-case
+                               (progn (package:remove-package opts-a) nil)
+                             (error (e)
+                               (search "cannot remove"
+                                       (princ-to-string e))))))
+                 (uiop:delete-directory-tree root :validate t))))
+
+(define-test remove-package-cascade
+             :parent nil
+             "remove-package with :CASCADE removes the package and everything
+   that depends on it, dependers first."
+             (let* ((root (temporary-dir "zick-cascade"))
+                    (opts-a (install-options root "a")))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (package:install-package opts-a)
+                     (package:install-package
+                       (install-options root "b"
+                                         :dependencies (list "a")))
+                     (let* ((opts-cascade
+                              (append (list :cascade t) opts-a))
+                            (removed
+                              (package:remove-package opts-cascade)))
+                       (is = 2 (length removed))
+                       (is string= "b" (getf (first removed) :name))
+                       (is string= "a" (getf (second removed) :name))
+                       (true (null (package:get-package-info opts-cascade)))
+                       (true (null
+                               (package:get-package-info
+                                 (install-options root "b"))))))
+                 (uiop:delete-directory-tree root :validate t))))
+
+(define-test remove-package-dry-run
+             :parent nil
+             "remove-package with :DRY-RUN reports what would be removed without
+   removing it."
+             (let* ((root (temporary-dir "zick-dryrun"))
+                    (opts-a (install-options root "a")))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (package:install-package opts-a)
+                     (let* ((opts-dry (append (list :dry-run t) opts-a))
+                            (removed (package:remove-package opts-dry)))
+                       (is = 1 (length removed))
+                       (true (not (null
+                                    (package:get-package-info opts-dry))))))
+                 (uiop:delete-directory-tree root :validate t))))
+
+;;; verify-package-files
+
+(define-test verify-package-files-errors-when-missing
+             :parent nil
+             "verify-package-files signals when the package is not installed."
+             (let* ((root (temporary-dir "zick-verify-miss"))
+                    (opts (install-options root "nope")))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (true (handler-case
+                               (progn (package:verify-package-files opts) nil)
+                             (error (e)
+                               (search "Could not extract file information"
+                                       (princ-to-string e))))))
+                 (uiop:delete-directory-tree root :validate t))))
+
+(define-test verify-package-files-reports-mismatches
+             :parent nil
+             "verify-package-files omits :correct results and groups the rest by
+   result keyword."
+             (let* ((root (temporary-dir "zick-verify"))
+                    (proj (project-dir root))
+                    (db-dir (merge-pathnames ".zick-db/" root))
+                    (store (db:add-package
+                             (db:empty-store)
+                             (list :package-name "a"
+                                   :package-version "0.1.0"
+                                   :package-location "loc"
+                                   :package-metadata nil)
+                             (list (list :path "a.txt" :size 5
+                                         :is-directory nil
+                                         :checksum *sha256-hello*))
+                             nil))
+                    (opts (list :package-name "a"
+                                :db-connection-string
+                                (uiop:native-namestring db-dir)
+                                :root-path proj)))
+               (unwind-protect
+                   (progn
+                     (ensure-directories-exist root)
+                     (ensure-directories-exist proj)
+                     (write-text-file (merge-pathnames "a.txt" proj) "hello")
+                     (db:save-store (merge-pathnames "packages.nrdl" db-dir)
+                                    store)
+                     ;; Everything correct: no groups.
+                     (is equal '()
+                         (package:verify-package-files opts))
+                     ;; Corrupt the file (same size): checksum group.
+                     (write-text-file
+                       (merge-pathnames "a.txt" proj)
+                       "HELLO")
+                     (let* ((groups (package:verify-package-files opts))
+                            (group (car groups)))
+                       (is = 1 (length groups))
+                       (is eq :checksum-discrepancy (car group))
+                       (is string= "a.txt"
+                           (getf (first (cdr group)) :path))))
+                 (uiop:delete-directory-tree root :validate t))))

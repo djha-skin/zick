@@ -66,7 +66,8 @@
     #:remove-uses
     ;; Helpers
     #:clean-for-insert
-    #:file-class-p))
+    #:file-class-p
+    #:zic-paths))
 
 (in-package #:com.djhaskin.zick/db)
 
