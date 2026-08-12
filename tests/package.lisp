@@ -18,6 +18,8 @@
     #:config-and-upgrade-precautions
     #:install-package
     #:remove-package
+    #:reachable-nodes
+    #:sinks
     #:linearize)
   (:import-from #:com.djhaskin.zick/db)
   (:import-from #:com.djhaskin.zick/fs)
@@ -923,4 +925,132 @@
             (is eq :checksum-discrepancy (car group))
             (is string= "a.txt"
                 (getf (first (cdr group)) :path))))
+      (uiop:delete-directory-tree root :validate t))))
+
+;;; More linearization cases
+
+(defun diamond (node)
+  "A diamond graph: c depends on a and b, and both depend on d."
+  (cdr (assoc node '((:c . (:a :b))
+                     (:a . (:d))
+                     (:b . (:d))
+                     (:d)))))
+
+(defun self-loop (node)
+  "A graph where a depends on itself."
+  (cdr (assoc node '((:a . (:a))))))
+
+(define-test linearize-diamond
+  :parent nil
+  "linearize visits a shared dependency exactly once, sinks first."
+  (is equal '(:d :a :b :c) (package:linearize #'diamond :c)))
+
+(define-test linearize-unknown-node
+  :parent nil
+  "linearize of a node with no neighbors is that node alone."
+  (is equal '(:zzz) (package:linearize #'no-edges :zzz)))
+
+(define-test linearize-self-loop
+  :parent nil
+  "linearize resolves a self-loop by listing the node once."
+  (is equal '(:a) (package:linearize #'self-loop :a)))
+
+(define-test reachable-nodes-basics
+  :parent nil
+  "reachable-nodes collects every node reachable from the start."
+  (let ((rnodes (package:reachable-nodes #'basic :c '() '())))
+    (is = 3 (length rnodes))
+    (true (member :a rnodes :test #'string=))
+    (true (member :b rnodes :test #'string=))
+    (true (member :c rnodes :test #'string=))))
+
+(define-test reachable-nodes-respects-ignore
+  :parent nil
+  "reachable-nodes skips the nodes listed in IGNORE."
+  (let ((rnodes (package:reachable-nodes #'fighter :c '() '(:u :v :w :x))))
+    ;; :u's whole subtree (u, v, w, x) is gone; the rest remains.
+    (true (null (member :u rnodes :test #'string=)))
+    (true (null (member :v rnodes :test #'string=)))
+    (is = 5 (length rnodes))
+    (true (member :a rnodes :test #'string=))
+    (true (member :b rnodes :test #'string=))
+    (true (member :c rnodes :test #'string=))
+    (true (member :d rnodes :test #'string=))
+    (true (member :e rnodes :test #'string=))))
+
+(define-test sinks-basics
+  :parent nil
+  "sinks returns the nodes with no neighbors outside IGNORE."
+  (is equal '(:a) (package:sinks '(:c :b :a) #'basic '()))
+  (is equal '(:a :e)
+      (package:sinks '(:c :b :a :e) #'basic '()))
+  (is equal '(:a)
+      (package:sinks '(:c :b :a) #'basic '(:b))))
+
+;;; File conflicts
+
+(define-test package-file-conflicts-clean
+  :parent nil
+  "package-file-conflicts finds nothing when files are unowned."
+  (let ((store (store-with-files "a" "0.1.0" nil)))
+    (is equal '()
+        (package:package-file-conflicts
+          store "b"
+          (list (list :path "fresh.txt" :is-directory nil)
+                (list :path "dir/" :is-directory t))))))
+
+(define-test package-file-conflicts-reports-owner
+  :parent nil
+  "package-file-conflicts names the package that owns a clashing
+   file, but not files the installing package already owns."
+  (let ((store (store-with-files
+                 "a" "0.1.0"
+                 (list (list :path "shared.txt" :size 1
+                             :is-directory nil :checksum "c")))))
+    (let ((conflicts
+            (package:package-file-conflicts
+              store "b"
+              (list (list :path "shared.txt" :is-directory nil)))))
+      (is = 1 (length conflicts))
+      (is string= "a" (getf (first conflicts) :package))
+      (is string= "shared.txt"
+          (getf (first conflicts) :path)))
+    ;; A package's own files are not conflicts.
+    (is equal '()
+        (package:package-file-conflicts
+          store "a"
+          (list (list :path "shared.txt" :is-directory nil))))))
+
+;;; More config-fate combinations
+
+(define-test decide-config-fate-more
+  :parent nil
+  "decide-config-fate covers the remaining combinations."
+  ;; Unchanged file present on disk: nothing to do.
+  (is eq :do-nothing
+      (package:decide-config-fate "old" "current" "old"))
+  ;; Same checksum everywhere: install is a no-op.
+  (is eq :install (package:decide-config-fate "x" "x" "x"))
+  ;; No old record, file present on disk: put the new one aside.
+  (is eq :put-aside (package:decide-config-fate nil "cur" "new"))
+  ;; File absent on disk: install regardless of old record.
+  (is eq :install (package:decide-config-fate "old" nil "new")))
+
+;;; install-package dependency handling
+
+(define-test install-package-unmet-dependency
+  :parent nil
+  "install-package signals when a dependency is not installed."
+  (let* ((root (temporary-dir "zick-unmet"))
+         (opts (install-options root "b"
+                                :dependencies (list "missing"))))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (true (handler-case
+                    (progn
+                      (package:install-package opts)
+                      nil)
+                  (error (e)
+                    (search "unmet" (princ-to-string e))))))
       (uiop:delete-directory-tree root :validate t))))

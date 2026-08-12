@@ -154,9 +154,9 @@
    once a directory equals its own parent (the filesystem root)."
   (loop
     for p = path then (uiop:pathname-parent-directory-pathname p)
-    for prev = nil then p
+    while p
     collect p
-    until (or (null p) (equal p prev))))
+    until (equal p (uiop:pathname-parent-directory-pathname p))))
 
 (defun entry-name-component (p)
   "Return the last path component of P as a string."

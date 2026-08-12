@@ -320,3 +320,265 @@
                                   (uiop:temporary-directory)))))
     (is = 0 (f:size (db:store-packages store)))
     (is = 0 (f:size (db:store-files store)))))
+
+(define-test slurp-corrupt-store-signals
+  :parent nil
+  "slurp-store signals when the store file is not valid NRDL."
+  (let ((path (merge-pathnames
+                (format nil "zick-db-bad-~a.nrdl" (random 1000000))
+                (uiop:temporary-directory))))
+    (unwind-protect
+        (progn
+          (with-open-file (out path :direction :output
+                               :if-exists :supersede
+                               :if-does-not-exist :create)
+            (write-string "this is not nrdl" out))
+          (true (handler-case (progn (db:slurp-store path) nil)
+                  (error () t))))
+      (uiop:delete-file-if-exists path))))
+
+;;; Record internals
+
+(define-test lookup-key-basics
+  :parent nil
+  "lookup-key fetches from an FSet map and returns nil when missing."
+  (let ((map (f:map ("a" 1) ("b" 2))))
+    (is = 1 (db::lookup-key map "a"))
+    (true (null (db::lookup-key map "zzz")))
+    (true (null (db::lookup-key nil "a")))))
+
+(define-test map-contains-p-basics
+  :parent nil
+  "map-contains-p tests membership in an FSet map."
+  (let ((map (f:map ("a" 1))))
+    (true (db::map-contains-p map "a"))
+    (true (null (db::map-contains-p map "b")))))
+
+(define-test present-package-drops-nils
+  :parent nil
+  "present-package omits nil-valued keys from a package record."
+  (let ((plist
+          (db::present-package
+            (db:make-package-record
+              :name "a" :version "0.1.0" :location "loc"
+              :metadata nil :is-source nil :dependencies (f:empty-set)))))
+    (is equal '(:name "a" :version "0.1.0" :location "loc") plist)))
+
+(define-test present-file-drops-nils
+  :parent nil
+  "present-file omits nil-valued keys from a file record."
+  (let ((plist
+          (db::present-file
+            (db:make-file :path "p" :size 1 :class :normal-file
+                          :checksum nil :owner "a"))))
+    (is equal '(:path "p" :size 1 :class :normal-file) plist)))
+
+(define-test package-with-dependencies-preserves-fields
+  :parent nil
+  "package-with-dependencies swaps the dependency set, keeping the
+   rest of the record intact."
+  (let* ((pkg (db:make-package-record
+                :name "a" :version "1.0.0" :location "loc"
+                :metadata (f:map (:mood :rare)) :is-source t
+                :dependencies (f:set "x")))
+         (replaced (db::package-with-dependencies pkg (f:set "y"))))
+    (is string= "a" (db:package-record-name replaced))
+    (is string= "1.0.0" (db:package-record-version replaced))
+    (is eq t (db:package-record-is-source replaced))
+    (is equal :rare (f:lookup (db:package-record-metadata replaced)
+                              :mood))
+    (true (f:contains? (db:package-record-dependencies replaced) "y"))
+    (true (null (f:contains? (db:package-record-dependencies replaced)
+                             "x")))))
+
+;;; add-package details
+
+(define-test add-package-is-source-flag
+  :parent nil
+  "add-package records the :IS-SOURCE flag on the package record."
+  (let* ((store (db:add-package (db:empty-store)
+                                (list :package-name "a"
+                                      :package-version "0.1.0"
+                                      :package-location "loc"
+                                      :package-metadata nil
+                                      :is-source t)
+                                nil
+                                nil))
+         (rec (nth-value 0
+                         (f:lookup (db:store-packages store) "a"))))
+    (is eq t (db:package-record-is-source rec))))
+
+(define-test zic-paths-edge-cases
+  :parent nil
+  "zic-paths handles nil metadata, missing keys, and present keys."
+  (true (null (db:zic-paths nil :config-files)))
+  (true (null (db:zic-paths (f:map (:other (f:empty-seq))) :config-files)))
+  (let* ((metadata
+           (f:map (:zic (f:map (:config-files
+                                 (f:convert 'fset:seq '("conf.txt")))))))
+         (paths (db:zic-paths metadata :config-files)))
+    (true (not (null paths)))
+    (is string= "conf.txt" (f:first paths))))
+
+;;; Ownership details
+
+(define-test insert-file-reassigns-owner
+  :parent nil
+  "insert-file on a path already owned by another package reassigns
+   the owner (files are keyed by path, last write wins)."
+  (let* ((store (db:empty-store))
+         (store (db:add-package store
+                                (list :package-name "a"
+                                      :package-version "0.1.0"
+                                      :package-location "loc"
+                                      :package-metadata nil)
+                                nil
+                                nil))
+         (store (db:add-package store
+                                (list :package-name "b"
+                                      :package-version "0.1.0"
+                                      :package-location "loc"
+                                      :package-metadata nil)
+                                nil
+                                nil)))
+    (setf store
+          (db:insert-file store "a"
+                          (list :file/path "shared.txt" :file/size 1
+                                :file/class :normal-file
+                                :file/checksum "aaa")))
+    (setf store
+          (db:insert-file store "b"
+                          (list :file/path "shared.txt" :file/size 2
+                                :file/class :normal-file
+                                :file/checksum "bbb")))
+    (is string= "b" (db:owned-by-p store "shared.txt"))
+    (is = 2 (getf (first (db:package-files store "b")) :size))
+    (is = 0 (length (db:package-files store "a")))))
+
+(define-test remove-then-reinstall-frees-paths
+  :parent nil
+  "Removing a package frees its name and file paths for reinstall."
+  (let* ((store (db:empty-store))
+         (store (db:add-package store
+                                (list :package-name "a"
+                                      :package-version "0.1.0"
+                                      :package-location "loc"
+                                      :package-metadata nil)
+                                (list (list :path "a.txt" :size 5
+                                            :is-directory nil
+                                            :checksum "c1"))
+                                nil))
+         (store (db:remove-package store "a"))
+         (store (db:add-package store
+                                (list :package-name "a"
+                                      :package-version "0.2.0"
+                                      :package-location "new-loc"
+                                      :package-metadata nil)
+                                (list (list :path "a.txt" :size 5
+                                            :is-directory nil
+                                            :checksum "c2"))
+                                nil)))
+    (is string= "0.2.0"
+        (getf (db:package-info store "a") :version))
+    (is string= "a" (db:owned-by-p store "a.txt"))))
+
+;;; Removal details
+
+(define-test remove-files-and-uses-missing-noop
+  :parent nil
+  "Removing files or uses for unknown packages is a no-op."
+  (let ((store (sample-store)))
+    (let ((store (db:remove-files store "no-such")))
+      (is = 3 (f:size (db:store-packages store)))
+      (is = 3 (length (db:package-files store "c"))))
+    (let ((store (db:remove-uses store "no-such")))
+      (is = 3 (f:size (db:store-packages store)))
+      (is = 2 (length (db:package-dependees store "b"))))))
+
+(define-test dependers-of-unknown-are-nil
+  :parent nil
+  "Dependency queries for unknown packages return nil."
+  (let ((store (sample-store)))
+    (true (null (db:package-dependers store "no-such")))
+    (true (null (db:package-dependees store "no-such")))
+    (true (null (db:dependers-by-id store "no-such")))
+    (true (null (db:dependers-by-id store nil)))))
+
+(define-test insert-use-dedupes
+  :parent nil
+  "insert-use does not duplicate an existing dependency."
+  (let* ((store (db:add-package (db:empty-store)
+                                (list :package-name "a"
+                                      :package-version "0.1.0"
+                                      :package-location "loc"
+                                      :package-metadata nil)
+                                nil
+                                nil))
+         (store (db:add-package store
+                                (list :package-name "b"
+                                      :package-version "0.1.0"
+                                      :package-location "loc"
+                                      :package-metadata nil)
+                                nil
+                                nil))
+         (store (db:insert-use store "a" "b"))
+         (store (db:insert-use store "a" "b")))
+    (is = 1 (length (db:package-dependees store "a")))))
+
+;;; More persistence edge cases
+
+(define-test store-round-trips-empty-store
+  :parent nil
+  "An empty store round-trips through NRDL."
+  (let* ((store (db:empty-store))
+         (path (merge-pathnames
+                 (format nil "zick-db-empty-~a.nrdl" (random 1000000))
+                 (uiop:temporary-directory))))
+    (unwind-protect
+        (progn
+          (db:save-store path store)
+          (let ((loaded (db:slurp-store path)))
+            (is = 0 (f:size (db:store-packages loaded)))
+            (is = 0 (f:size (db:store-files loaded)))))
+      (uiop:delete-file-if-exists path))))
+
+(define-test store-round-trips-is-source-and-metadata
+  :parent nil
+  "The round trip preserves is-source flags, metadata maps, and ghost
+   files."
+  (let* ((store (db:add-package
+                  (db:empty-store)
+                  (list :package-name "a"
+                        :package-version "0.1.0"
+                        :package-location "loc"
+                        :package-metadata
+                        (f:map (:zic
+                                 (f:map (:ghost-files
+                                          (f:convert 'fset:seq
+                                                     '("a/ghost.txt"))))))
+                        :is-source t)
+                  (list (list :path "a/real.txt" :size 4
+                              :is-directory nil :checksum "c"))
+                  nil))
+         (path (merge-pathnames
+                 (format nil "zick-db-meta-~a.nrdl" (random 1000000))
+                 (uiop:temporary-directory))))
+    (unwind-protect
+        (progn
+          (db:save-store path store)
+          (let* ((loaded (db:slurp-store path))
+                 (rec (nth-value 0
+                                 (f:lookup (db:store-packages loaded)
+                                           "a"))))
+            (is eq t (db:package-record-is-source rec))
+            (is = 1 (f:size (db:package-record-metadata rec)))
+            (let ((ghost (find-by-path "a/ghost.txt"
+                                       (db:package-files loaded "a"))))
+              (true (not (null ghost)))
+              (is eq :ghost-file (getf ghost :class))
+              (is = 0 (getf ghost :size)))
+            (is string= "c"
+                (getf (find-by-path "a/real.txt"
+                                    (db:package-files loaded "a"))
+                      :checksum))))
+      (uiop:delete-file-if-exists path))))

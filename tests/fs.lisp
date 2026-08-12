@@ -28,7 +28,10 @@
   (:import-from #:parachute
     #:define-test
     #:is
-    #:true))
+    #:true)
+  (:local-nicknames
+    (#:fs #:com.djhaskin.zick/fs)
+    (#:f #:fset)))
 
 (in-package #:com.djhaskin.zick/tests/fs)
 
@@ -41,6 +44,10 @@
   "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
 
 (defparameter *crc32-hello* #x3610a686)
+
+;;; SHA-256 of the empty string, also a standard test vector.
+(defparameter *sha256-empty*
+  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
 ;;; Test helpers
 
@@ -361,3 +368,183 @@
                                       ".zic-db")))
         (true (not (null found)))
         (is string= ".zic-db" (file-namestring found))))))
+
+(define-test find-marking-file-missing-returns-nil
+  :parent nil
+  "find-marking-file returns nil when no matching file exists."
+  (with-temporary-directory (tmp)
+    (let ((proj (merge-pathnames "proj/src/" tmp)))
+      (ensure-directories-exist proj)
+      (true (null (find-marking-file proj ".zic-db"))))))
+
+;;; Small helpers
+
+(define-test bytes->hexstr-converts
+  :parent nil
+  "bytes->hexstr emits lowercase zero-padded hex."
+  (is string= "ff1001" (fs::bytes->hexstr #(255 16 1)))
+  (is string= "" (fs::bytes->hexstr #())))
+
+(define-test in-set-membership
+  :parent nil
+  "in-set recognizes functions, hash tables, fset sets, and nil."
+  (let ((table (make-hash-table :test 'equal)))
+    (setf (gethash "a" table) t)
+    (true (fs::in-set (lambda (x) (string= x "a")) "a"))
+    (true (null (fs::in-set (lambda (x) (string= x "a")) "b")))
+    (true (fs::in-set table "a"))
+    (true (null (fs::in-set table "b")))
+    (true (fs::in-set (fset:set "a") "a"))
+    (true (null (fs::in-set (fset:set "a") "b")))
+    (true (null (fs::in-set nil "a")))))
+
+(define-test file-size-returns-bytes
+  :parent nil
+  "file-size returns the byte length of a file."
+  (with-temporary-directory (tmp)
+    (let ((path (merge-pathnames "sample" tmp)))
+      (write-text-file path "hello")
+      (is = 5 (file-size path)))))
+
+(define-test stream-sha256-of-empty
+  :parent nil
+  "stream-sha256 of an empty stream is the empty-file digest."
+  (with-temporary-directory (tmp)
+    (let ((path (merge-pathnames "empty" tmp)))
+      (write-bytes path #())
+      (with-open-file (in path :direction :input
+                          :element-type '(unsigned-byte 8))
+        (is string= *sha256-empty* (stream-sha256 in))))))
+
+;;; Entry-level digests and the stored-CRC invariant
+
+(defun non-directory-entry (zip-file)
+  "Return the first non-directory entry of ZIP-FILE."
+  (find-if-not
+    (lambda (entry) (fs::directory-entry-p entry))
+    (coerce (org.shirakumo.zippy:entries zip-file) 'list)))
+
+(define-test entry-sha256-known-vector
+  :parent nil
+  "entry-sha256 hashes a zip entry's content."
+  (with-temporary-directory (tmp)
+    (let* ((dir (merge-pathnames "fixture/" tmp))
+           (zip-path (make-zip (fixture-dir dir)
+                               (merge-pathnames "fixture.zip" tmp))))
+      (with-zip-file (zf zip-path)
+        (is string= *sha256-hello*
+            (fs::entry-sha256 (non-directory-entry zf)))))))
+
+(define-test entry-crc-known-vector
+  :parent nil
+  "entry-crc computes the CRC-32 of a zip entry's content."
+  (with-temporary-directory (tmp)
+    (let* ((dir (merge-pathnames "fixture/" tmp))
+           (zip-path (make-zip (fixture-dir dir)
+                               (merge-pathnames "fixture.zip" tmp))))
+      (with-zip-file (zf zip-path)
+        (is = *crc32-hello*
+            (fs::entry-crc (non-directory-entry zf)))))))
+
+(define-test decode-preserves-stored-crc
+  :parent nil
+  "Decoding an entry out-of-band (as upgrade-existing-package does for
+   checksums) must not break a later crc-violations check: zippy's
+   decode-entry would otherwise clobber the stored CRC."
+  (with-temporary-directory (tmp)
+    (let* ((dir (merge-pathnames "fixture/" tmp))
+           (zip-path (make-zip (fixture-dir dir)
+                               (merge-pathnames "fixture.zip" tmp))))
+      (with-zip-file (zf zip-path)
+        (fs::entry-sha256 (non-directory-entry zf))
+        (is equal '() (crc-violations zf))))))
+
+(define-test directory-entry-p-classifies
+  :parent nil
+  "directory-entry-p distinguishes directory entries from files."
+  (with-temporary-directory (tmp)
+    (let* ((dir (merge-pathnames "fixture/" tmp))
+           (zip-path (make-zip (fixture-dir dir)
+                               (merge-pathnames "fixture.zip" tmp))))
+      (with-zip-file (zf zip-path)
+        (let* ((entries (coerce (org.shirakumo.zippy:entries zf) 'list))
+               (a (find "a.txt" entries
+                        :key (lambda (e)
+                               (org.shirakumo.zippy:file-name e))
+                        :test #'string=)))
+          (true (not (null a)))
+          (true (null (fs::directory-entry-p a)))
+          ;; The fixture has a subdirectory, so some entry is a dir.
+          (true (some #'fs::directory-entry-p entries)))))))
+
+;;; Directory helpers
+
+(define-test list-files-includes-files-and-dirs
+  :parent nil
+  "list-files returns the files and subdirectories of a directory."
+  (with-temporary-directory (tmp)
+    (let* ((dir (fixture-dir (merge-pathnames "fixture/" tmp)))
+           (entries (list-files dir))
+           (names (mapcar #'file-namestring entries)))
+      ;; a.txt, b.txt, and the sub/ directory (not its contents).
+      (is = 3 (length entries))
+      (true (member "a.txt" names :test #'string=))
+      (true (member "b.txt" names :test #'string=))
+      (true (some #'uiop:directory-pathname-p entries)))))
+
+(define-test all-parents-reaches-root
+  :parent nil
+  "all-parents walks from a path up through its ancestors, without
+   collecting nil."
+  (with-temporary-directory (tmp)
+    (let* ((start (merge-pathnames "a/b/" tmp))
+           (parents (fs:all-parents start)))
+      (is equal start (first parents))
+      (true (member tmp parents :test #'equal))
+      (true (null (member nil parents))))))
+
+;;; unpack details
+
+(define-test unpack-overwrites-existing-normal-file
+  :parent nil
+  "unpack replaces an existing non-put-aside file with the archive
+   content."
+  (with-temporary-directory (tmp)
+    (let* ((dir (merge-pathnames "fixture/" tmp))
+           (zip-path (make-zip (fixture-dir dir)
+                               (merge-pathnames "fixture.zip" tmp)))
+           (dest (merge-pathnames "out/" tmp)))
+      (ensure-directories-exist dest)
+      (write-text-file (merge-pathnames "a.txt" dest) "stale")
+      (with-zip-file (zf zip-path)
+        (unpack zf dest))
+      (is string= "hello"
+          (read-text-file (merge-pathnames "a.txt" dest))))))
+
+(define-test backup-all-missing-is-noop
+  :parent nil
+  "backup-all ignores paths that do not exist."
+  (with-temporary-directory (tmp)
+    (backup-all tmp (list "no-such-file") "bak")
+    (true (null (uiop:directory-files tmp)))))
+
+;;; verify details
+
+(define-test verify-size-zero-file
+  :parent nil
+  "verify accepts an existing empty normal file of size 0."
+  (with-temporary-directory (tmp)
+    (write-bytes (merge-pathnames "empty" tmp) #())
+    (is equal '(:result :correct)
+        (verify tmp
+                (list :path "empty" :size 0 :class :normal-file
+                      :checksum *sha256-empty*)))))
+
+(define-test verify-normal-file-path-not-file
+  :parent nil
+  "verify reports a directory where a normal file is expected."
+  (with-temporary-directory (tmp)
+    (ensure-directories-exist (merge-pathnames "adir/" tmp))
+    (is equal '(:result :path-not-file)
+        (verify tmp (list :path "adir" :size 1 :class :normal-file
+                          :checksum "x")))))

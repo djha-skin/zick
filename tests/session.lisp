@@ -222,3 +222,56 @@
                                                   store "a")
                                                 :name)))))
       (uiop:delete-directory-tree root :validate t))))
+
+;;; More lock and store-file details
+
+(define-test with-filelock-removes-lock-on-signal
+  :parent nil
+  "with-filelock removes the lock file even when the thunk signals."
+  (let ((lock (lock-path)))
+    (unwind-protect
+        (progn
+          (handler-case
+              (session:with-filelock
+                lock
+                (lambda () (error "boom")))
+            (error (e)
+              (is string= "boom" (princ-to-string e))))
+          (true (null (probe-file lock))))
+      (uiop:delete-file-if-exists lock))))
+
+(define-test with-zic-session-releases-lock-on-signal
+  :parent nil
+  "with-zic-session releases the lock when the thunk signals."
+  (let* ((root (uiop:ensure-directory-pathname
+                 (merge-pathnames
+                   (format nil "zick-root-err-~d/"
+                           (random 1000000))
+                   (uiop:temporary-directory))))
+         (db-dir (merge-pathnames "zick-db/" root))
+         (conn (uiop:native-namestring db-dir))
+         (lock (merge-pathnames "zick.lock" root)))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist db-dir)
+          (handler-case
+              (session:with-zic-session conn lock
+                                        (lambda (store)
+                                          (declare (ignore store))
+                                          (error "boom")))
+            (error (e)
+              (is string= "boom" (princ-to-string e))))
+          (true (null (probe-file lock))))
+      (uiop:delete-directory-tree root :validate t))))
+
+(define-test store-file-path-joins-connection
+  :parent nil
+  "store-file-path places packages.nrdl inside the connection
+   directory, with or without a trailing slash."
+  (let ((path (session::store-file-path "/tmp/zick-db")))
+    (is string= "packages.nrdl" (file-namestring path))
+    (is string= "/tmp/zick-db/"
+        (uiop:native-namestring
+          (uiop:pathname-directory-pathname path))))
+  (let ((path (session::store-file-path "/tmp/zick-db/")))
+    (is string= "packages.nrdl" (file-namestring path))))
