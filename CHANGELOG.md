@@ -37,6 +37,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dependency-aware removal (cascade vs refuse, dry-run, sink-first
   linearization), file-conflict and checksum verification, and the
   package query API, with a Parachute test suite (71 assertions).
+- Port of `zic.cli` (`src/main.lisp`): the `zick` command line via
+  CLIFF with subcommands `add`, `files`, `info`, `init`, `remove`,
+  `dependers`, `dependees`, and `verify` (plus stubbed `list` and
+  `orphans`), the zic short aliases, NRDL output, verify exit codes
+  3 (package not found) and 4 (verification failures), JSON package
+  metadata for `-m` parsed with NRDL, and the deprecated `.zic-db`
+  marking-file fallback (with a warning); `cl-json` dropped in
+  favor of NRDL's JSON superset parsing, with a CLI integration
+  test suite (25 assertions).
 
 ### Changed
 

@@ -1,17 +1,72 @@
 ;;;; tests/main.lisp
 ;;;;
-;;;; Smoke tests for the zick package.
+;;;; Integration tests for the zick command-line interface in
+;;;; src/main.lisp: exercise `main` against real temporary projects
+;;;; (with a throwaway HTTP server for the download path), covering
+;;;; init/add/info/files/verify/remove/dependers/dependees, the verify
+;;;; exit codes 3 and 4, missing-argument errors, JSON package
+;;;; metadata, and the deprecated `.zic-db` marking-file fallback.
 
 (defpackage #:com.djhaskin.zick/tests/main
   (:use #:cl)
   (:import-from #:com.djhaskin.zick
     #:main)
+  (:import-from #:com.djhaskin.zick/db
+    #:save-store)
+  (:import-from #:com.djhaskin.zick/tests/package
+    #:http-serve-once
+    #:make-zip
+    #:project-dir
+    #:read-text-file
+    #:source-dir
+    #:store-with-files
+    #:temporary-dir
+    #:write-source-fixture
+    #:write-text-file)
+  (:import-from #:uiop)
   (:import-from #:parachute
     #:define-test
     #:is
     #:true))
 
 (in-package #:com.djhaskin.zick/tests/main)
+
+;;; Helpers
+
+(defun project (root)
+  "Ensure the project directory under ROOT exists and return it."
+  (let ((proj (project-dir root)))
+    (ensure-directories-exist proj)
+    proj))
+
+(defun temp-project (prefix)
+  "A fresh temporary root and its project directory (created)."
+  (let* ((root (temporary-dir prefix))
+         (proj (project root)))
+    (values root proj)))
+
+(defun run-captured (thunk)
+  "Run THUNK with *standard-output* and *error-output* redirected to
+   a string stream, returning (values exit-code output)."
+  (let ((out (make-string-output-stream)))
+    (let ((*standard-output* out)
+          (*error-output* out))
+      (values (funcall thunk) (get-output-stream-string out)))))
+
+(defun cli (dir &rest argv)
+  "Run zick with ARGV against the project at DIR, returning the exit
+   code.  The directory is passed without a trailing slash, as a
+   user would type it (setup must handle it as a directory)."
+  (apply #'main "-d"
+         (string-right-trim "/" (uiop:native-namestring dir))
+         argv))
+
+(defun cli-captured (dir &rest argv)
+  "Run zick with ARGV against the project at DIR, returning (values
+   exit-code output)."
+  (run-captured (lambda () (apply #'cli dir argv))))
+
+;;; Smoke tests
 
 (define-test system-package-exists
   :parent nil
@@ -27,3 +82,224 @@
   :parent nil
   "An unknown subcommand exits with CLIFF's usage error code (64)."
   (is = 64 (main "no-such-subcommand")))
+
+;;; init
+
+(define-test init-creates-store
+  :parent nil
+  "zick init creates the .zick-db store document at the start
+   directory."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-init")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (true (uiop:file-exists-p
+                  (merge-pathnames ".zick-db/packages.nrdl" proj))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+;;; add and queries without download
+
+(define-test add-records-package-without-download
+  :parent nil
+  "zick add -W records a package in the store, and info shows it."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-add")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0"
+                       "-l" "https://example.com/a.zip" "-W"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "info" "-k" "a")
+            (is = 0 exit)
+            (true (search "\"a\"" out))
+            (true (search "\"0.1.0\"" out))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test add-with-dependency-drives-dependers-and-dependees
+  :parent nil
+  "A package added with -u shows up in the dependees of its
+   dependency and the dependers of the dependent."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-deps")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0"
+                       "-l" "https://example.com/a.zip" "-W"))
+          (is = 0 (cli proj "add" "-k" "b" "-V" "0.1.0"
+                       "-l" "https://example.com/b.zip" "-W"
+                       "-u" "a"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "dependees" "-k" "b")
+            (is = 0 exit)
+            (true (search "\"a\"" out)))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "dependers" "-k" "a")
+            (is = 0 exit)
+            (true (search "\"b\"" out))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+;;; Missing-argument errors
+
+(define-test query-subcommands-require-package-name
+  :parent nil
+  "files/info/remove/verify/dependers/dependees exit 64 without -k."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-missing")
+    (unwind-protect
+        (dolist (cmd '("files" "info" "remove" "verify"
+                       "dependers" "dependees"))
+          (is = 64 (cli proj cmd)))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test add-missing-arguments-signals
+  :parent nil
+  "zick add without name/version/location exits non-zero and names
+   the missing requirement."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-addmissing")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "add")
+            (true (plusp exit))
+            (true (search "must all be given" out))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test add-with-unmet-dependency-signals
+  :parent nil
+  "zick add -u naming an uninstalled package exits non-zero and
+   reports the unmet dependency."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-unmet")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "add" "-k" "a" "-V" "0.1.0"
+                                             "-l" "https://example.com/a.zip"
+                                             "-u" "ghost")
+            (true (plusp exit))
+            (true (search "unmet" out))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+;;; Download, files, and verify
+
+(define-test add-downloads-unpacks-and-verifies
+  :parent nil
+  "zick add downloads and unpacks a package archive; files lists its
+   files; verify exits 0 when correct, 4 after a file is tampered
+   with, and 3 for a package that is not installed."
+  (let* ((root (temporary-dir "zick-cli-download"))
+         (proj (project root))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")))
+                     "pkg.zip"))
+         (url (http-serve-once zip-path)))
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0" "-l" url))
+          (true (uiop:file-exists-p (merge-pathnames "app.txt" proj)))
+          (is string= "app content"
+              (read-text-file (merge-pathnames "app.txt" proj)))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "files" "-k" "a")
+            (is = 0 exit)
+            (true (search "app.txt" out)))
+          (is = 0 (cli proj "verify" "-k" "a"))
+          (write-text-file (merge-pathnames "app.txt" proj) "tampered")
+          (is = 4 (cli proj "verify" "-k" "a"))
+          (is = 3 (cli proj "verify" "-k" "ghost")))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test add-with-json-metadata-marks-config-files
+  :parent nil
+  "zick add -m parses the JSON metadata; files declared as config
+   files there are recorded as such (deleting one fails
+   verification)."
+  (let* ((root (temporary-dir "zick-cli-meta"))
+         (proj (project root))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")
+                                  ("conf.txt" . "config content")))
+                     "pkg.zip"))
+         (url (http-serve-once zip-path)))
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0" "-l" url
+                       "-m" "{\"zick\":{\"config-files\":[\"conf.txt\"]}}"))
+          (is = 0 (cli proj "verify" "-k" "a"))
+          (uiop:delete-file-if-exists (merge-pathnames "conf.txt" proj))
+          (is = 4 (cli proj "verify" "-k" "a")))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+;;; remove
+
+(define-test remove-then-info-reports-not-found
+  :parent nil
+  "zick remove deletes a recorded package; a second remove and info
+   both report it absent (exit 0 with :not-found)."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-remove")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0"
+                       "-l" "https://example.com/a.zip" "-W"))
+          (is = 0 (cli proj "remove" "-k" "a"))
+          (is = 0 (cli proj "remove" "-k" "a"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "info" "-k" "a")
+            (is = 0 exit)
+            (true (search "not-found" out))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test remove-without-cascade-signals
+  :parent nil
+  "zick remove of a package others depend on exits non-zero without
+   -c."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-cascade")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0"
+                       "-l" "https://example.com/a.zip" "-W"))
+          (is = 0 (cli proj "add" "-k" "b" "-V" "0.1.0"
+                       "-l" "https://example.com/b.zip" "-W"
+                       "-u" "a"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "remove" "-k" "a")
+            (true (plusp exit))
+            (true (search "depend" out))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+;;; Deprecated marking file
+
+(define-test legacy-zic-db-marking-file-warns-and-works
+  :parent nil
+  "A project marked with the deprecated .zic-db file is still used,
+   with a deprecation warning on stderr."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-legacy")
+    (unwind-protect
+        (progn
+          (save-store (merge-pathnames ".zic-db/packages.nrdl" proj)
+                      (store-with-files "legacy" "0.1.0" nil))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "info" "-k" "legacy")
+            (is = 0 exit)
+            (true (search "deprecated" out))
+            (true (search "\"legacy\"" out))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
