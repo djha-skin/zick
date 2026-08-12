@@ -333,7 +333,7 @@
 (define-test remove-without-cascade-signals
   :parent nil
   "zick remove of a package others depend on exits non-zero without
-   -c."
+   -c, naming the dependers."
   (multiple-value-bind (root proj) (temp-project "zick-cli-cascade")
     (unwind-protect
         (progn
@@ -346,7 +346,38 @@
           (multiple-value-bind (exit out)
                                (cli-captured proj "remove" "-k" "a")
             (true (plusp exit))
-            (true (search "depend" out))))
+            (true (search "depend" out))
+            (true (search "cannot remove: b" out))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test remove-dry-run-leaves-files
+  :parent nil
+  "zick remove -r reports what would be removed but leaves the
+   package, its files, and its record alone."
+  (let* ((root (temporary-dir "zick-cli-dryrun"))
+         (proj (project root))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")))
+                     "pkg.zip"))
+         (url (http-serve-once zip-path)))
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0" "-l" url))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "remove" "-k" "a" "-r")
+            (is = 0 exit)
+            (true (search "dry-run true" out))
+            (true (search "removed-packages" out)))
+          ;; The package record and its file remain.
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "info" "-k" "a")
+            (is = 0 exit)
+            (true (search "\"a\"" out)))
+          (true (uiop:file-exists-p (merge-pathnames "app.txt" proj))))
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
 

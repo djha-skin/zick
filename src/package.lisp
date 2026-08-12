@@ -510,7 +510,9 @@
                          store package-info (getf options :root-path))))
                   (t
                    (error "Packages which depend on the one in ~
-                           question exist, cannot remove."))))))))
+                           question exist, cannot remove: ~{~a~^, ~}"
+                          (remove (getf package-info :name)
+                                  remove-ids :test #'string=)))))))))
     removed))
 
 ;;; Graph linearization

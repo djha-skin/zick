@@ -845,7 +845,7 @@
 (define-test remove-package-refuses-with-dependers
   :parent nil
   "remove-package without :CASCADE refuses when other packages depend
-   on the one to be removed."
+   on the one to be removed, naming the dependers."
   (let* ((root (temporary-dir "zick-refuse"))
          (opts-a (install-options root "a")))
     (unwind-protect
@@ -853,13 +853,32 @@
           (ensure-directories-exist root)
           (package:install-package opts-a)
           (package:install-package
-            (install-options root "b"
-                             :dependencies (list "a")))
-          (true (handler-case
-                    (progn (package:remove-package opts-a) nil)
-                  (error (e)
-                    (search "cannot remove"
-                            (princ-to-string e))))))
+            (install-options root "b" :dependencies (list "a")))
+          (let ((msg (handler-case
+                         (progn (package:remove-package opts-a) nil)
+                       (error (e) (princ-to-string e)))))
+            (true (search "cannot remove: b" msg))))
+      (uiop:delete-directory-tree root :validate t))))
+
+(define-test remove-package-refusal-lists-all-dependers
+  :parent nil
+  "remove-package's refusal error names every package that depends on
+   the one to be removed, comma-joined."
+  (let* ((root (temporary-dir "zick-refuse-many"))
+         (opts-a (install-options root "a")))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (package:install-package opts-a)
+          (package:install-package
+            (install-options root "b" :dependencies (list "a")))
+          (package:install-package
+            (install-options root "c" :dependencies (list "a")))
+          (let ((msg (handler-case
+                         (progn (package:remove-package opts-a) nil)
+                       (error (e) (princ-to-string e)))))
+            (true (search "cannot remove: " msg))
+            (true (or (search "b, c" msg) (search "c, b" msg)))))
       (uiop:delete-directory-tree root :validate t))))
 
 (define-test remove-package-cascade
@@ -891,19 +910,82 @@
 (define-test remove-package-dry-run
   :parent nil
   "remove-package with :DRY-RUN reports what would be removed without
-   removing it."
+   touching the project tree: the package record stays, its files stay
+   on disk, and no backup is created."
   (let* ((root (temporary-dir "zick-dryrun"))
-         (opts-a (install-options root "a")))
+         (proj (project-dir root))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")
+                                  ("conf.txt" . "config content")))
+                     "pkg.zip"))
+         (url (http-serve-once zip-path))
+         (opts (download-install-options proj url "a"
+                                         :metadata (config-metadata))))
     (unwind-protect
         (progn
           (ensure-directories-exist root)
-          (package:install-package opts-a)
-          (let* ((opts-dry (append (list :dry-run t) opts-a))
+          (ensure-directories-exist proj)
+          (package:install-package opts)
+          (let* ((opts-dry (append (list :dry-run t) opts))
                  (removed (package:remove-package opts-dry)))
             (is = 1 (length removed))
+            ;; The package record is still present.
             (true (not (null
-                         (package:get-package-info opts-dry))))))
-      (uiop:delete-directory-tree root :validate t))))
+                         (package:get-package-info opts-dry))))
+            ;; The files are still on disk, no backup was made.
+            (true (uiop:file-exists-p
+                    (merge-pathnames "app.txt" proj)))
+            (true (uiop:file-exists-p
+                    (merge-pathnames "conf.txt" proj)))
+            (true (not (uiop:file-exists-p
+                         (merge-pathnames "conf.txt.a.0.1.0.backup"
+                                          proj))))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test remove-package-cascade-dry-run
+  :parent nil
+  "remove-package with :CASCADE and :DRY-RUN reports the full removal
+   set (dependers first) without removing anything."
+  (let* ((root (temporary-dir "zick-dryrun-cascade"))
+         (proj (project-dir root))
+         (src-a (merge-pathnames "pkg-a/" root))
+         (src-b (merge-pathnames "pkg-b/" root))
+         (zip-a (make-zip
+                  root (write-source-fixture
+                         src-a '(("a.txt" . "a content")))
+                  "a.zip"))
+         (zip-b (make-zip
+                  root (write-source-fixture
+                         src-b '(("b.txt" . "b content")))
+                  "b.zip"))
+         (url-a (http-serve-once zip-a))
+         (url-b (http-serve-once zip-b))
+         (opts-a (download-install-options proj url-a "a")))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          (ensure-directories-exist proj)
+          (package:install-package opts-a)
+          (package:install-package
+            (list* :package-dependency (list "a")
+                   (download-install-options proj url-b "b")))
+          (let* ((opts-dry (append (list :cascade t :dry-run t) opts-a))
+                 (removed (package:remove-package opts-dry)))
+            (is = 2 (length removed))
+            (is string= "b" (getf (first removed) :name))
+            (is string= "a" (getf (second removed) :name))
+            ;; Both packages remain installed and their files remain.
+            (true (not (null (package:get-package-info opts-dry))))
+            (true (not (null
+                         (package:get-package-info
+                           (install-options proj "b")))))
+            (true (uiop:file-exists-p (merge-pathnames "a.txt" proj)))
+            (true (uiop:file-exists-p (merge-pathnames "b.txt" proj)))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
 
 (define-test remove-package-backs-up-config-files
   :parent nil

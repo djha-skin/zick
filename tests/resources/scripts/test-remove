@@ -18,15 +18,23 @@ mkdir -p "${test_home}/proj"
 "${runthis}" add -d "${test_home}/proj" \
     -k b -V 0.1.0 -l "${fixture_url}/b.zip" -n -u a > /dev/null 2>&1
 
-# Removing a package that has dependents is refused.
+# Removing a package that has dependents is refused, naming them.
 set +e
 "${runthis}" remove -d "${test_home}/proj" -k a \
     > "${test_home}/refused.nrdl" 2>&1
 refused_exit=$?
 set -e
 [ "${refused_exit}" -ne 0 ]
-grep -q 'cannot remove' "${test_home}/refused.nrdl" \
-    || grep -q 'depend' "${test_home}/refused.nrdl"
+grep -q 'cannot remove' "${test_home}/refused.nrdl"
+grep -q 'b' "${test_home}/refused.nrdl"
+
+# Dry-run removal reports but changes nothing on disk.
+"${runthis}" remove -d "${test_home}/proj" -k b -r \
+    > "${test_home}/dryrun.nrdl" 2>&1
+grep -q 'dry-run true' "${test_home}/dryrun.nrdl"
+grep -q 'removed-packages' "${test_home}/dryrun.nrdl"
+[ -e "${test_home}/proj/b/fie.txt" ]
+[ -e "${test_home}/proj/b/d/hoarcrux.txt" ]
 
 # Cascade removes the dependent too.
 "${runthis}" remove -d "${test_home}/proj" -k a -c \

@@ -35,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dsolv-style POSIX shell scripts (`tests/resources/scripts/test-*`)
   covering init/add/info/files/verify (exit codes 0/3/4)/remove/
   dependers/dependees, run by `make test-black-box`.
+- `zick remove` refusal now names the packages that depend on the
+  one being removed, and the dry-run path (`-r`/`--enable-dry-run`)
+  is exercised end to end: it reports the full removal set
+  (dependers first under `-c`) while leaving the package record, its
+  files, and its config-file backups untouched.
 - CLI download authorizations: `zick add` accepts
   `--json-download-authorizations` (per-host `basic`/`header`/
   `oauth-token` records, parsed with NRDL into `fs:download`'s auth
