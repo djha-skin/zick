@@ -1,0 +1,20 @@
+#!/bin/sh
+#|-*- mode:lisp -*-|#
+#|
+exec ros -Q -- $0 "$@"
+|#
+(progn
+  (ros:ensure-asdf)
+  (asdf:load-asd (merge-pathnames "com.djhaskin.zick.asd"
+                                  (uiop:getcwd)))
+  (asdf:load-system :com.djhaskin.zick))
+
+(defpackage :ros.script.com.djhaskin.zick
+  (:use :cl))
+(in-package :ros.script.com.djhaskin.zick)
+
+(defun main (&rest argv)
+  (sb-ext:exit
+    :code
+    (nth-value 0
+      (apply #'com.djhaskin.zick:main argv))))

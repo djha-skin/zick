@@ -3,3 +3,21 @@
 .dolt/
 *.db
 .beads-credential-key
+/.beads/interactions.jsonl
+
+# OCICL downloaded system code (commit ocicl.csv, not ocicl/)
+ocicl/
+
+# Compiled Lisp files
+*.fasl
+*.fasl.gz
+.DS_Store
+
+# Generated documentation build output
+docs/build/
+docs/manual.scr
+missfont.log
+
+# Built binary and backups
+com.djhaskin.zick
+*.bak
