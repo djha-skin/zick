@@ -106,12 +106,23 @@
     ht))
 
 (defun keywordize-fset-map (fmap)
-  "Return FMAP with string keys interned as keywords, recursing into
-   values."
+  "Return FMAP with string and symbol keys interned as keywords,
+   recursing into values.
+
+   NRDL reads JSON string keys back as lowercase keywords (e.g.
+   :|zick|), so both strings and symbols are normalized to the
+   keyword spelling the store looks up (:ZICK)."
   (let ((result (f:empty-map)))
     (fset:do-map (k v fmap)
                  (setf result (f:with result
-                                      (if (stringp k) (intern k :keyword) k)
+                                      (cond
+                                        ((stringp k)
+                                         (intern (string-upcase k) :keyword))
+                                        ((symbolp k)
+                                         (intern (string-upcase
+                                                   (symbol-name k))
+                                                 :keyword))
+                                        (t k))
                                 (keywordize-fset-value v))))
     result))
 

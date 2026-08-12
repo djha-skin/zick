@@ -24,6 +24,7 @@
     #:temporary-dir
     #:write-source-fixture
     #:write-text-file)
+  (:import-from #:fset)
   (:import-from #:uiop)
   (:import-from #:parachute
     #:define-test
@@ -303,11 +304,32 @@
           (is = 0 (cli proj "init"))
           (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0" "-l" url
                        "-m" "{\"zick\":{\"config-files\":[\"conf.txt\"]}}"))
+          ;; The JSON keys survive keywordization: conf.txt is recorded
+          ;; as a config file, app.txt as a normal file.
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "files" "-k" "a")
+            (is = 0 exit)
+            (true (search "class config-file" out))
+            (true (search "class normal-file" out)))
           (is = 0 (cli proj "verify" "-k" "a"))
           (uiop:delete-file-if-exists (merge-pathnames "conf.txt" proj))
           (is = 4 (cli proj "verify" "-k" "a")))
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
+
+(define-test json-metadata-keywordizes-nrdl-keys
+  :parent nil
+  "json-metadata-to-fset normalizes NRDL's case-preserved keyword
+   keys (:|zick|) to the uppercase keywords (:ZICK) that zick-paths
+   looks up."
+  (let ((metadata
+          (com.djhaskin.zick::json-metadata-to-fset
+            "{\"zick\":{\"config-files\":[\"conf.txt\"]}}")))
+    (is = 1 (fset:size (com.djhaskin.zick/db:zick-paths
+                         metadata :config-files)))
+    (is string= "conf.txt"
+        (fset:first (com.djhaskin.zick/db:zick-paths
+                      metadata :config-files)))))
 
 (define-test add-refuses-conflicting-install
   :parent nil

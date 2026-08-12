@@ -1,0 +1,64 @@
+#!/bin/sh
+# Black-box test: `zick add` a package, edit its config file, then
+# upgrade to a new version via add.  The edited config is put aside
+# (conf.txt.u.0.2.0.new), stale files are removed, new files land, and
+# the database record is updated to 0.2.0.
+# Run from the project root (see test-all).
+set -eu
+
+root_path=${PWD}
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+fixture_url=${FIXTURE_URL:-https://127.0.0.1:8443}
+test_home=${root_path}/tests/resources/data/add-upgrade
+
+rm -rf "${test_home}"
+mkdir -p "${test_home}/proj"
+
+"${runthis}" init -d "${test_home}/proj" > /dev/null 2>&1
+
+# Install u 0.1.0 with conf.txt declared as a config file.
+"${runthis}" add -d "${test_home}/proj" \
+    -k u -V 0.1.0 -l "${fixture_url}/u.zip" \
+    -m '{"zick":{"config-files":["u/conf.txt"]}}' -n \
+    > "${test_home}/add1.nrdl" 2>&1
+grep -q 'result successful' "${test_home}/add1.nrdl"
+grep -q 'version one app' "${test_home}/proj/u/app.txt"
+
+# The user edits the config file locally.
+printf 'user edited conf\n' > "${test_home}/proj/u/conf.txt"
+
+# Upgrade to 0.2.0: conf.txt and app.txt change, stale.txt disappears,
+# new.txt appears.
+"${runthis}" add -d "${test_home}/proj" \
+    -k u -V 0.2.0 -l "${fixture_url}/u2.zip" \
+    -m '{"zick":{"config-files":["u/conf.txt"]}}' -n \
+    > "${test_home}/add2.nrdl" 2>&1
+grep -q 'result successful' "${test_home}/add2.nrdl"
+
+# The edited config is kept in place; the incoming one is put aside.
+grep -q 'user edited conf' "${test_home}/proj/u/conf.txt"
+grep -q 'version two conf' "${test_home}/proj/u/conf.txt.u.0.2.0.new"
+
+# Stale normal files are removed; new normal files land; changed ones
+# are replaced.
+[ ! -e "${test_home}/proj/u/stale.txt" ]
+grep -q 'new in v2' "${test_home}/proj/u/new.txt"
+grep -q 'version two app' "${test_home}/proj/u/app.txt"
+
+# The database record reflects 0.2.0 with the new file set.
+"${runthis}" info -d "${test_home}/proj" -k u \
+    > "${test_home}/info.nrdl" 2>&1
+grep -q 'result package-found' "${test_home}/info.nrdl"
+grep -q 'version "0.2.0"' "${test_home}/info.nrdl"
+"${runthis}" files -d "${test_home}/proj" -k u \
+    > "${test_home}/files.nrdl" 2>&1
+grep -q 'path "u/conf.txt"' "${test_home}/files.nrdl"
+grep -q 'class config-file' "${test_home}/files.nrdl"
+grep -q 'path "u/new.txt"' "${test_home}/files.nrdl"
+grep -q 'class normal-file' "${test_home}/files.nrdl"
+if grep -q 'path "u/stale.txt"' "${test_home}/files.nrdl"; then
+    echo "test-add-upgrade: stale file still recorded" >&2
+    exit 1
+fi
+
+echo "test-add-upgrade: ok"

@@ -37,6 +37,23 @@ echo 'The wind in the' > "${test_data}/a/willows.txt"
 # conflict-refusal testing.
 (cd "${test_data}" && zip -qr "${wwwroot}/conflict.zip" a/poem.txt)
 
+# u.zip / u2.zip are two versions of one package for upgrade testing:
+# u 0.1.0 ships conf.txt (config) + app.txt + stale.txt; u 0.2.0
+# changes conf.txt and app.txt, drops stale.txt, and adds new.txt.
+# Both zips carry the same u/ entry prefix so the upgrade lands in the
+# same place as the original install.
+mkdir -p "${test_data}/u"
+echo 'version one conf' > "${test_data}/u/conf.txt"
+echo 'version one app' > "${test_data}/u/app.txt"
+echo 'gone in v2' > "${test_data}/u/stale.txt"
+(cd "${test_data}" && zip -qr "${wwwroot}/u.zip" u)
+# Version two replaces the content under the same u/ prefix.
+rm -f "${test_data}/u/stale.txt"
+echo 'version two conf' > "${test_data}/u/conf.txt"
+echo 'version two app' > "${test_data}/u/app.txt"
+echo 'new in v2' > "${test_data}/u/new.txt"
+(cd "${test_data}" && zip -qr "${wwwroot}/u2.zip" u)
+
 # bad.zip: a STORED entry whose content byte is flipped after zipping,
 # so the stored CRC no longer matches the content.
 python3 - "${wwwroot}/bad.zip" <<'PYEOF'

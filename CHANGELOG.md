@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project scaffolding: ASDF system `com.djhaskin.zick` with a tests
   system, CLIFF-based entry point, Roswell script, Makefile, and
   ocicl dependency pinning.
+
+### Fixed
+
+- `zick add -m` JSON metadata: NRDL reads JSON object keys back as
+  case-preserved keywords (e.g. `:|zick|`), which the metadata
+  keywordization skipped, so config-file/ghost-file classification
+  (and therefore upgrade put-aside/do-nothing decisions) was silently
+  disabled for packages installed with `-m`.  Keys are now normalized
+  to the store's uppercase keywords (`:zick`/`:config-files`).
 - Smoke tests for the CLI entry point.
 - Port of `zic.fs`: archive handling via zippy, SHA-256/CRC-32 via
   ironclad, downloads via dexador/quri, and `.zick-db` marking-file

@@ -811,7 +811,28 @@
               (read-text-file (merge-pathnames "conf.txt" proj)))
           (is string= "new config"
               (read-text-file
-                (merge-pathnames "conf.txt.a.0.2.0.new" proj))))
+                (merge-pathnames "conf.txt.a.0.2.0.new" proj)))
+          ;; The database record was updated: the package is 0.2.0, its
+          ;; file set is the new version's (stale files gone), and the
+          ;; classes were re-derived from the new metadata.
+          (let* ((updated (db:slurp-store
+                            (merge-pathnames ".zick-db/packages.nrdl" proj)))
+                 (updated-info (db:package-info updated "a"))
+                 (updated-files
+                   (mapcar (lambda (f) (getf f :path))
+                           (db:package-files updated "a"))))
+            (is string= "0.2.0" (getf updated-info :version))
+            (true (member "conf.txt" updated-files :test #'string=))
+            (true (member "app.txt" updated-files :test #'string=))
+            (true (null (member "oldconf.txt" updated-files
+                                :test #'string=)))
+            ;; The put-aside conf keeps its config-file class in the
+            ;; new record.
+            (is eq :config-file
+                (getf (find-if (lambda (f)
+                                 (string= "conf.txt" (getf f :path)))
+                               (db:package-files updated "a"))
+                      :class))))
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
 
