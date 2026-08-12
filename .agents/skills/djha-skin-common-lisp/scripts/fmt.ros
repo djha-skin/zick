@@ -1,0 +1,359 @@
+#!/bin/sh
+#|-*- mode:lisp -*-|#
+#|dsolv fmt - format and lint Lisp sources. Forked from roswell/fmt.ros, adds style checks.
+exec ros -Q -N roswell -- $0 "$@"
+|#
+(progn ;;init forms
+  (ros:ensure-asdf)
+  #+sbcl (require "sb-introspect")
+  #+quicklisp (ql:quickload '("cl-indentify" "cl-ppcre") :silent t))
+
+(defpackage :ros.script.fmt.3707812168
+  (:use #:cl #:cl-ppcre))
+(in-package :ros.script.fmt.3707812168)
+
+;;; ─── Constants ──────────────────────────────────────────────────────────────
+
+(defparameter *max-line-length* 80
+  "Maximum allowed line length.")
+
+(defparameter *max-fmt-passes* 10
+  "Maximum indentify passes when seeking a formatting fixed point.")
+
+(defparameter *trailing-space* (cl-ppcre:create-scanner "[ \\t]+$")
+  "Regex for trailing whitespace.")
+
+(defparameter *defpackage-start-re* (cl-ppcre:create-scanner
+                                      "^(\\s*)\\(defpackage\\s")
+  "Regex to detect defpackage start.")
+
+(defparameter *keyword-export-re* (cl-ppcre:create-scanner
+                                    "\\s:(\\S+?)(?=\\s|\\))")
+  "Regex to detect interned keywords (:foo) that should be uninterned (#:foo).")
+
+;;; ─── Lint checks ────────────────────────────────────────────────────────────
+
+(defun net-parens (line)
+  "Return the net paren delta of LINE, ignoring strings and comments."
+  (let ((delta 0)
+        (in-string nil))
+    (loop for ch across line
+          do (cond
+               (in-string (when (char= ch #\") (setf in-string nil)))
+               ((char= ch #\") (setf in-string t))
+               ((char= ch #\;) (loop-finish))
+               ((char= ch #\() (incf delta))
+               ((char= ch #\)) (decf delta))))
+    delta))
+
+(defun lint-file (file)
+  "Run all style checks on FILE. Returns a list of issue strings."
+  (let ((issues nil)
+        (lines nil)
+        (in-defpackage nil)
+        (defpackage-depth 0))
+    (with-open-file (in file :external-format :utf-8)
+      (loop for line = (read-line in nil)
+            for i from 1
+            while line
+            do (push line lines)
+            ;; Per-line checks
+            (let ((len (length line)))
+              (when (> len *max-line-length*)
+                (push (format nil "  Line ~D: ~D chars (max ~D)"
+                              i len *max-line-length*)
+                      issues)))
+            (when (cl-ppcre:scan *trailing-space* line)
+              (push (format nil "  Line ~D: trailing whitespace" i)
+                    issues))
+            ;; Comment style checks
+            (let ((trimmed (string-trim '(#\Space #\Tab) line)))
+              (when (and (plusp (length trimmed))
+                         (char= (char trimmed 0) #\;))
+                (let ((semi-count
+                        (loop for c across trimmed
+                              while (char= c #\;)
+                              count c)))
+                  (unless (member semi-count '(1 2 3 4))
+                    (push (format nil "  Line ~D: ~D semicolons (use 1-4)"
+                                  i semi-count)
+                          issues)))))
+            ;; defpackage tracking: enter on the defpackage line and leave
+            ;; when the running paren depth returns to zero, so tracking is
+            ;; form-based rather than guessing at a lone closing paren.
+            (multiple-value-bind (match groups)
+                (cl-ppcre:scan-to-strings *defpackage-start-re* line)
+              (declare (ignore match))
+              (when groups
+                (setf in-defpackage t
+                      defpackage-depth 0)))
+            (when in-defpackage
+              (incf defpackage-depth (net-parens line))
+              ;; Uninterned keyword check inside defpackage
+              (cl-ppcre:register-groups-bind (kw) (*keyword-export-re* line)
+                (unless (or (cl-ppcre:scan "^:[#:]" kw)
+                            (cl-ppcre:scan "^:\\\"" kw))
+                  (push (format nil
+                                "  Line ~D: interned keyword ~A \
+(use #: prefix in defpackage)"
+                                i (string-trim '(#\Space) kw))
+                        issues)))
+              (when (<= defpackage-depth 0)
+                (setf in-defpackage nil))))
+      (setf lines (nreverse lines))
+      (setf issues (nreverse issues)))
+    ;; File header check (.ros scripts start with a shebang instead)
+    (unless (or (equal (pathname-type file) "ros")
+                (and (>= (length lines) 2)
+                     (every (lambda (line)
+                              (and (plusp (length line))
+                                   (char= (char line 0) #\;)
+                                   (char= (char line 1) #\;)
+                                   (char= (char line 2) #\;)
+                                   (char= (char line 3) #\;)))
+                             (subseq lines 0 2))))
+      (push "  Missing file header (first 2 lines should start with ;;;;)"
+            issues))
+    (when issues
+      (append (list (format nil "~A:" file))
+              issues))))
+
+;;; ─── Auto-fix functions ────────────────────────────────────────────────────
+
+(defun fix-trailing-whitespace (file)
+  "Remove trailing whitespace from every line in FILE."
+  (let ((content nil))
+    (with-open-file (in file :external-format :utf-8)
+      (loop for line = (read-line in nil)
+            while line
+            do (push line content))
+      (setf content (nreverse content)))
+    (with-open-file (out file :direction :output :if-exists :supersede
+                         :external-format :utf-8)
+      (dolist (line content)
+        (write-line (cl-ppcre:regex-replace *trailing-space* line "") out)))))
+
+;;; ─── Formatting (from original fmt.ros) ─────────────────────────────────────
+
+(defparameter *library-templates*
+  '(("WITH-ZIP-FILE" . (:count 1 :sub (nil (:count 0) nil)))
+    ("WITH-DATABASE" . (:count 1 :sub (nil (:count 0) nil)))
+    ("WITH-ZIC-SESSION" . (:count 2 :sub (nil nil (:count 0) nil)))
+    ("WITH-FILELOCK" . (:count 2 :sub (nil nil (:count 0) nil)))
+    ("DEFINE-TEST" . (:count 1 :sub (nil (:count 0) nil)))
+    ("GMAP:GMAP" . (:count 1 :sub (nil (:count 0) nil)))
+    ("F:WITH" . (:count 2 :sub (nil nil (:count 0) nil)))
+    ("FSET:WITH" . (:count 2 :sub (nil nil (:count 0) nil))))
+  "cl-indentify body templates for macros and functions from
+   dependencies: zippy's with-zip-file, the session layer's
+   with-database family, parachute's define-test, and gmap's gmap
+   (used with an fset collection argument).  Their bodies (or
+   continuation arguments) indent two spaces instead of aligning
+   under the first argument, keeping deeply nested forms inside 80
+   columns.")
+
+(defun register-standard-templates ()
+  "Override templates to match Lem/Emacs/SLIME indentation."
+  (setf (indentify:indent-template 'if) '(:count 3))
+  (dolist (sym '(case ccase ecase typecase ctypecase etypecase))
+    (setf (indentify:indent-template sym)
+          '(:count 1 :sub (nil nil (:style :list)))))
+  (setf (indentify:indent-template 'cond)
+        '(:count 0 :sub (nil (:style :list)))))
+
+(defparameter *defmacro-head-re*
+  (cl-ppcre:create-scanner "\\(defmacro\\s+([^\\s()]+)\\s*\\(")
+  "Regex matching a defmacro form head, capturing the macro name.")
+
+(defun find-&body-position (text start)
+  "Return the number of top-level parameters before &body (or &rest)
+   in the lambda list that opens at START (just past the '('), or nil
+   when the lambda list has no body keyword."
+  (let ((depth 1) (pos start) (count 0) (in-string nil))
+    (loop while (< pos (length text))
+          do (let ((ch (char text pos)))
+               (cond
+                 (in-string
+                  (when (char= ch #\") (setf in-string nil)))
+                 ((char= ch #\") (setf in-string t))
+                 ((char= ch #\;)
+                  (setf pos (or (position #\Newline text :start pos)
+                                (length text))))
+                 ((char= ch #\() (when (= depth 1) (incf count))
+                  (incf depth))
+                 ((char= ch #\))
+                  (decf depth)
+                  (when (zerop depth) (loop-finish)))
+                 ((and (= depth 1) (char= ch #\Space))
+                  (let* ((end (position-if
+                                (lambda (c)
+                                  (member c '(#\Space #\Tab #\Newline #\))))
+                                text :start (1+ pos)))
+                         (token (subseq text (1+ pos)
+                                         (or end (length text)))))
+                    (when (or (string= token "&body")
+                              (string= token "&rest"))
+                      (return-from find-&body-position count))
+                    (when (and (plusp (length token))
+                               (not (char= (char token 0) #\&)))
+                      (incf count))
+                    (when end (setf pos end))))))
+          do (incf pos))
+    nil))
+
+(defun register-file-macro-templates (path)
+  "Register cl-indentify body templates for the macros defined in the
+   file at PATH, so their bodies indent two spaces instead of
+   aligning under the first argument.  Templates are keyed by name
+   string, which is the only way they apply to internal (non-exported)
+   macros."
+  (let ((text (uiop:read-file-string path :external-format :utf-8)))
+    (loop with pos = 0
+          while (< pos (length text))
+          do (multiple-value-bind (s e rs re)
+                  (cl-ppcre:scan *defmacro-head-re* text :start pos)
+               (if (null s)
+                   (loop-finish)
+                   (let* ((name (subseq text (aref rs 0) (aref re 0)))
+                          (body-pos (find-&body-position text e)))
+                     (when body-pos
+                       (setf (indentify:indent-template name)
+                             (list :count body-pos
+                                   :sub (append
+                                          (loop repeat body-pos collect nil)
+                                          (list (list :count 0))
+                                          (list nil)))))
+                     (setf pos (1+ e))))))))
+
+(defun normalize-lines (text)
+  "Strip trailing whitespace from each line of TEXT, preserving the
+   input's trailing-newline state."
+  (let* ((ends-newline (and (plusp (length text))
+                            (char= (char text (1- (length text)))
+                                   #\Newline)))
+         (body (with-input-from-string (in text)
+                 (with-output-to-string (out)
+                   (loop for line = (read-line in nil)
+                         while line
+                         do (write-string
+                              (string-right-trim '(#\Space #\Tab) line)
+                              out)
+                            (terpri out))))))
+    (if (or ends-newline (zerop (length body)))
+        body
+        (subseq body 0 (1- (length body))))))
+
+(defun indentify-string (text)
+  "Run one cl-indentify pass over TEXT, returning the re-indented text."
+  (with-input-from-string (in text)
+    (with-output-to-string (out)
+      (indentify:indentify in out))))
+
+(defun format-text (text)
+  "Apply one formatting pass (indentify plus line normalization) to TEXT."
+  (normalize-lines (indentify-string text)))
+
+(defun format-file (path)
+  "Format the file at PATH in place to a formatting fixed point.
+   Returns the number of passes needed (0 when already stable).
+   Signals an error when formatting does not converge or oscillates."
+  (let* ((original (uiop:read-file-string path :external-format :utf-8))
+         (current (normalize-lines original))
+         (seen (make-hash-table :test 'equal)))
+    (loop for pass from 0 below *max-fmt-passes*
+          for next = (format-text current)
+          do (when (string= next current)
+               (unless (string= current original)
+                 (with-open-file (out path :direction :output
+                                          :if-exists :supersede
+                                          :external-format :utf-8)
+                   (write-string current out)))
+               (return-from format-file pass))
+             (when (gethash next seen)
+               (error "fmt oscillates on ~A; cl-indentify has no fixed point"
+                      path))
+             (setf (gethash next seen) t)
+             (setf current next))
+    (error "fmt did not converge on ~A after ~D passes"
+           path *max-fmt-passes*)))
+
+(defun formatted-p (path)
+  "Return T when the file at PATH is at its formatting fixed point."
+  (let ((contents (uiop:read-file-string path :external-format :utf-8)))
+    (string= (format-text contents) contents)))
+
+;;; ─── Main entry point ───────────────────────────────────────────────────────
+
+(defun main (&rest argv)
+  "Format and lint Lisp source files."
+  (let ((check-only nil)
+        (fix-flag nil)
+        (files nil)
+        (exit-code 0))
+    ;; Parse arguments
+    (loop for arg in argv
+          do (cond
+               ((string= arg "--check") (setf check-only t))
+               ((string= arg "--fix")   (setf fix-flag t))
+               (t (push arg files))))
+    (setf files (nreverse files))
+    ;; Discover files if none given
+    (unless files
+      (setf files (append (directory "*.lisp")
+                          (directory "*.ros")
+                          (directory "src/**/*.lisp")
+                          (directory "src/**/*.ros")
+                          (directory "tests/**/*.lisp")
+                          (directory "tests/**/*.ros"))))
+    (indentify:load-default-templates)
+    (register-standard-templates)
+    (dolist (pair *library-templates*)
+      (setf (indentify:indent-template (car pair)) (cdr pair)))
+    ;; Process each file
+    (dolist (file files)
+      (let ((path (probe-file file)))
+        (unless path
+          (format t "~A does not exist~%" file)
+          (setf exit-code 1)
+          (return))
+        (register-file-macro-templates path)
+        ;; Fix trailing whitespace if --fix
+        (when fix-flag
+          (handler-case
+              (progn
+                (fix-trailing-whitespace path)
+                (format t "  Fixed trailing whitespace: ~A~%"
+                        (file-namestring path)))
+            (error (e)
+              (format t "  Error fixing ~A: ~A~%"
+                      (file-namestring path) e)
+              (setf exit-code 2))))
+        ;; Run lint checks
+        (let ((issues (lint-file path)))
+          (when issues
+            (dolist (issue issues)
+              (format t "~A~%" issue)
+              (finish-output))
+            (setf exit-code (max exit-code 1))))
+        (if check-only
+            ;; Check that the file is already at its formatting fixed point
+            (handler-case
+                (unless (formatted-p path)
+                  (format t "  Not at formatting fixed point (run fmt): ~A~%"
+                          (file-namestring path))
+                  (setf exit-code (max exit-code 1)))
+              (error (e)
+                (format t "  Error checking ~A: ~A~%"
+                        (file-namestring path) e)
+                (setf exit-code 2)))
+            ;; Format to the fixed point
+            (handler-case
+                (let ((passes (format-file path)))
+                  (format t "  Formatted ~A (in ~D passes)~%"
+                          (file-namestring path) passes))
+              (error (e)
+                (format t "  Error formatting ~A: ~A~%"
+                        (file-namestring path) e)
+                (setf exit-code 2))))))
+    exit-code))
+;;; vim: set ft=lisp lisp:

@@ -23,10 +23,10 @@
   "A metadata map declaring c/echo.txt a config file and c/ghost.txt
    a ghost file."
   (f:map (:zic
-          (f:map (:config-files
-                  (f:convert 'fset:seq '("c/echo.txt")))
-                 (:ghost-files
-                  (f:convert 'fset:seq '("c/ghost.txt")))))))
+           (f:map (:config-files
+                    (f:convert 'fset:seq '("c/echo.txt")))
+                  (:ghost-files
+                    (f:convert 'fset:seq '("c/ghost.txt")))))))
 
 (defun sample-store ()
   "A store with packages a, b, and c.  c depends on a, and b depends
@@ -299,24 +299,24 @@
   "save-store writes an NRDL file that slurp-store reads back."
   (let* ((store (sample-store))
          (path (merge-pathnames
-                (format nil "zick-db-test-~a.nrdl" (random 1000000))
-                (uiop:temporary-directory))))
+                 (format nil "zick-db-test-~a.nrdl" (random 1000000))
+                 (uiop:temporary-directory))))
     (unwind-protect
-         (progn
-           (db:save-store path store)
-           (let ((loaded (db:slurp-store path)))
-             (is string= "c" (db:owned-by-p loaded "c/echo.txt"))
-             (is string= "0.2.0"
-                 (getf (db:package-info loaded "b") :version))
-             (is = 2 (length (db:package-dependees loaded "b")))
-             (is = 3 (length (db:package-files loaded "c")))))
+        (progn
+          (db:save-store path store)
+          (let ((loaded (db:slurp-store path)))
+            (is string= "c" (db:owned-by-p loaded "c/echo.txt"))
+            (is string= "0.2.0"
+                (getf (db:package-info loaded "b") :version))
+            (is = 2 (length (db:package-dependees loaded "b")))
+            (is = 3 (length (db:package-files loaded "c")))))
       (uiop:delete-file-if-exists path))))
 
 (define-test slurp-missing-store
   :parent nil
   "slurp-store returns an empty store when the file is missing."
   (let ((store (db:slurp-store
-                (merge-pathnames "no-such-store.nrdl"
-                                 (uiop:temporary-directory)))))
+                 (merge-pathnames "no-such-store.nrdl"
+                                  (uiop:temporary-directory)))))
     (is = 0 (f:size (db:store-packages store)))
     (is = 0 (f:size (db:store-files store)))))

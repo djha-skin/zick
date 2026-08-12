@@ -106,7 +106,7 @@
 ;;; seqs back into the records' set/map slots.
 
 (defmethod nrdl:emit-nrdl-struct (strm (val store) pretty-indent indented-at
-                                    &key json-mode)
+                                       &key json-mode)
   "Serialize a STORE as an NRDL object with :PACKAGES and :FILES."
   (let ((ht (make-hash-table :test 'equal)))
     (setf (gethash :packages ht) (store-packages val))
@@ -115,7 +115,7 @@
                         :json-mode json-mode)))
 
 (defmethod nrdl:emit-nrdl-struct (strm (val package-record) pretty-indent
-                                    indented-at &key json-mode)
+                                       indented-at &key json-mode)
   "Serialize a PACKAGE-RECORD as an NRDL object."
   (let ((ht (make-hash-table :test 'equal)))
     (setf (gethash :name ht) (package-record-name val))
@@ -128,7 +128,7 @@
                         :json-mode json-mode)))
 
 (defmethod nrdl:emit-nrdl-struct (strm (val file) pretty-indent indented-at
-                                    &key json-mode)
+                                       &key json-mode)
   "Serialize a FILE as an NRDL object."
   (let ((ht (make-hash-table :test 'equal)))
     (setf (gethash :path ht) (file-path val))
@@ -206,12 +206,12 @@
   (let ((tmp (uiop:parse-native-namestring
                (format nil "~a.~d.tmp" path (random 1000000)))))
     (unwind-protect
-         (progn
-           (with-open-file (stream tmp :direction :output
-                                   :if-exists :supersede
-                                   :if-does-not-exist :create)
-             (nrdl:generate-to stream store :pretty-indent 2))
-           (uiop:rename-file-overwriting-target tmp path))
+        (progn
+          (with-open-file (stream tmp :direction :output
+                                  :if-exists :supersede
+                                  :if-does-not-exist :create)
+            (nrdl:generate-to stream store :pretty-indent 2))
+          (uiop:rename-file-overwriting-target tmp path))
       (uiop:delete-file-if-exists tmp))))
 
 (defun init-database (path)

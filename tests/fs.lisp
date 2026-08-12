@@ -48,14 +48,14 @@
   "Bind VAR to a fresh temporary directory for the duration of BODY."
   (let ((dir (gensym "TMP-DIR-")))
     `(let* ((,dir (make-pathname
-                   :directory
-                   (append (pathname-directory (uiop:temporary-directory))
-                           (list (format nil "zick-test-~a"
-                                         (random 1000000)))))))
+                    :directory
+                    (append (pathname-directory (uiop:temporary-directory))
+                            (list (format nil "zick-test-~a"
+                                          (random 1000000)))))))
        (ensure-directories-exist ,dir)
        (unwind-protect
-            (let ((,var ,dir))
-              ,@body)
+           (let ((,var ,dir))
+             ,@body)
          (uiop:delete-directory-tree ,dir :validate t
                                      :if-does-not-exist :ignore)))))
 
@@ -72,15 +72,15 @@
 (defun write-bytes (path octets)
   "Write OCTETS to the file at PATH."
   (with-open-file (out path :direction :output
-                            :if-exists :supersede
-                            :if-does-not-exist :create
-                            :element-type '(unsigned-byte 8))
+                       :if-exists :supersede
+                       :if-does-not-exist :create
+                       :element-type '(unsigned-byte 8))
     (write-sequence octets out)))
 
 (defun read-bytes (path)
   "Read the file at PATH into a byte array."
   (with-open-file (in path :direction :input
-                           :element-type '(unsigned-byte 8))
+                      :element-type '(unsigned-byte 8))
     (let ((octets (make-array (file-length in)
                               :element-type '(unsigned-byte 8))))
       (read-sequence octets in)
@@ -129,10 +129,10 @@
     (let ((path (merge-pathnames "sample" tmp)))
       (write-text-file path "hello")
       (with-open-file (in path :direction :input
-                               :element-type '(unsigned-byte 8))
+                          :element-type '(unsigned-byte 8))
         (is string= *sha256-hello* (stream-sha256 in)))
       (with-open-file (in path :direction :input
-                               :element-type '(unsigned-byte 8))
+                          :element-type '(unsigned-byte 8))
         (is = *crc32-hello* (stream-crc in))))))
 
 (define-test file-sha256
@@ -199,7 +199,7 @@
           (true (not (null violations)))
           (is string= "a.txt" (getf (first violations) :path))
           (is = (zlib-crc-of "hello")
-               (getf (first violations) :stored-crc)))))))
+              (getf (first violations) :stored-crc)))))))
 
 (define-test unpack-writes-files
   :parent nil
@@ -235,7 +235,7 @@
         (is string= "already here"
             (read-text-file (merge-pathnames "a.txt" dest)))
         (true (uiop:file-exists-p
-               (merge-pathnames "a.txt.new" dest)))))))
+                (merge-pathnames "a.txt.new" dest)))))))
 
 (define-test unpack-excludes-and-pools-checksums
   :parent nil
@@ -287,17 +287,17 @@
     (write-text-file (merge-pathnames "good" tmp) "hello")
     (is equal '(:result :correct)
         (verify tmp (list :path "good" :size 5 :class :normal-file
-                           :checksum *sha256-hello*)))
+                          :checksum *sha256-hello*)))
     (is equal '(:result :size-discrepancy :target-path-size 5)
         (verify tmp (list :path "good" :size 4 :class :normal-file
-                           :checksum *sha256-hello*)))
+                          :checksum *sha256-hello*)))
     (is eq :checksum-discrepancy
         (getf (verify tmp (list :path "good" :size 5 :class :normal-file
-                                 :checksum "deadbeef"))
+                                :checksum "deadbeef"))
               :result))
     (is equal '(:result :file-missing)
         (verify tmp (list :path "nope" :size 5 :class :normal-file
-                           :checksum *sha256-hello*)))))
+                          :checksum *sha256-hello*)))))
 
 (define-test verify-ghost-and-config-files
   :parent nil

@@ -94,4 +94,4 @@
    reads the store."
   (with-filelock lock-path
                  (lambda ()
-                   (with-database connection-string f))))
+                         (with-database connection-string f))))

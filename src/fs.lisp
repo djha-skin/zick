@@ -83,9 +83,9 @@
   "Write ENTRY's content to PATH, returning its SHA-256 as a hex string."
   (ensure-directories-exist path)
   (with-open-file (out path :direction :output
-                            :if-exists :supersede
-                            :if-does-not-exist :create
-                            :element-type '(unsigned-byte 8))
+                       :if-exists :supersede
+                       :if-does-not-exist :create
+                       :element-type '(unsigned-byte 8))
     (let ((digest (ironclad:make-digest :sha256)))
       (z:decode-entry
         (lambda (buffer start end)
@@ -188,7 +188,7 @@
   "Compute the SHA-256 of the file at PATH, or nil if it does not exist."
   (when (uiop:file-exists-p path)
     (with-open-file (stream path :direction :input
-                                  :element-type '(unsigned-byte 8))
+                            :element-type '(unsigned-byte 8))
       (stream-sha256 stream))))
 
 (defun file-size (path)
@@ -205,7 +205,7 @@
    NOTE: :TIME is zippy's last-modified, i.e. universal time (seconds
    since the epoch), unlike zic's original epoch milliseconds."
   (gmap:gmap
-    (:result list)
+      (:result list)
     (lambda (entry)
       (list :path (z:file-name entry)
             :size (z:uncompressed-size entry)
@@ -215,7 +215,7 @@
     (:arg :seq (z:entries zip-file))))
 
 (defun archive-entry-checksums (zip-file &optional (path-pred
-                                                    (constantly t)))
+                                                     (constantly t)))
   "Compute the SHA-256 checksums of the non-directory entries of
    ZIP-FILE matching PATH-PRED, as an fset map of name to checksum."
   (fset:reduce
@@ -245,9 +245,9 @@
     (:arg :vector (z:entries zip-file))))
 
 (defun unpack (zip-file dest &key (put-aside nil)
-                             (put-aside-ending ".new")
-                             (exclude nil)
-                             (exclude-sum-pool nil))
+               (put-aside-ending ".new")
+               (exclude nil)
+               (exclude-sum-pool nil))
   "Unpack ZIP-FILE to DEST, returning a list of entry plists.
 
    Each plist has :PATH, :SIZE, :TIME, and :IS-DIRECTORY, plus
@@ -270,7 +270,7 @@
                    (typecase exclude-sum-pool
                      (hash-table (gethash entry-name exclude-sum-pool))
                      (f:map (nth-value 0
-                             (f:lookup exclude-sum-pool entry-name)))
+                                       (f:lookup exclude-sum-pool entry-name)))
                      (null nil))))
              (if exclude-sum
                  (list* :checksum exclude-sum base-return)
@@ -333,9 +333,9 @@
                            request-args)))
           (unwind-protect
               (with-open-file (out dest :direction :output
-                                        :if-exists :supersede
-                                        :if-does-not-exist :create
-                                        :element-type '(unsigned-byte 8))
+                                   :if-exists :supersede
+                                   :if-does-not-exist :create
+                                   :element-type '(unsigned-byte 8))
                 (let ((buffer (make-array 4096
                                           :element-type
                                           '(unsigned-byte 8))))

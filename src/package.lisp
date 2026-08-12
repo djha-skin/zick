@@ -98,10 +98,10 @@
                    (root-path (getf options :root-path))
                    (verified
                      (gmap:gmap (:result list)
-                                (lambda (x)
-                                  (list* :path (getf x :path)
-                                         (fs:verify root-path x)))
-                                (:arg :seq files))))
+                       (lambda (x)
+                         (list* :path (getf x :path)
+                                (fs:verify root-path x)))
+                       (:arg :seq files))))
               (loop for (result . infos)
                     in (remove-if
                          (lambda (group)
@@ -109,11 +109,11 @@
                          (group-by (lambda (z) (getf z :result)) verified))
                     collect (cons result
                                   (gmap:gmap (:result list)
-                                             (lambda (y)
-                                               (let ((copy (copy-list y)))
-                                                 (remf copy :result)
-                                                 copy))
-                                             (:arg :list infos))))))))))
+                                    (lambda (y)
+                                      (let ((copy (copy-list y)))
+                                        (remf copy :result)
+                                        copy))
+                                    (:arg :list infos))))))))))
 
 (defun get-package-info (options)
   "Return the presented info of the package named by :PACKAGE-NAME in
@@ -212,12 +212,12 @@
    STORE by a package other than PACKAGE-NAME, each annotated with
    :PACKAGE naming its owner."
   (gmap:gmap (:result list :filterp :id)
-             (lambda (rec)
-               (unless (getf rec :is-directory)
-                 (let ((owner (db:owned-by-p store (getf rec :path))))
-                   (when (and owner (not (string= package-name owner)))
-                     (list* :package owner rec)))))
-             (:arg :seq new-files)))
+    (lambda (rec)
+      (unless (getf rec :is-directory)
+        (let ((owner (db:owned-by-p store (getf rec :path))))
+          (when (and owner (not (string= package-name owner)))
+            (list* :package owner rec)))))
+    (:arg :seq new-files)))
 
 (defun config-group-paths (config-decisions fate)
   "Return the fset set of paths whose config decision is FATE.
@@ -250,16 +250,16 @@
          (old-config-files (cdr (assoc :config-file old-files)))
          (old-config-pairs
            (gmap:gmap (:result list)
-                      #'path-checksum-pair
-                      (:arg :list old-config-files)))
+             #'path-checksum-pair
+             (:arg :list old-config-files)))
          (old-config-sums (f:convert 'fset:map old-config-pairs))
          (old-config-fset
            (f:convert 'fset:set (mapcar #'car old-config-pairs)))
          (zip-path-fset
            (f:convert 'fset:set
                       (gmap:gmap (:result list :filterp :id)
-                                 #'entry-path
-                                 (:arg :seq zip-files))))
+                        #'entry-path
+                        (:arg :seq zip-files))))
          (new-config-fset
            (f:intersection
              zip-path-fset
@@ -282,22 +282,22 @@
            (f:reduce
              (lambda (acc conf-path)
                (f:with acc conf-path
-                       (fs:file-sha256
-                         (merge-pathnames conf-path root-path))))
+                 (fs:file-sha256
+                   (merge-pathnames conf-path root-path))))
              new-config-fset
              :initial-value (f:empty-map)))
          (config-decisions
            (group-by
              #'car
              (gmap:gmap (:result list)
-                        (lambda (x)
-                          (cons
-                            (decide-config-fate
-                              (f:lookup old-config-sums x)
-                              (f:lookup current-checksums x)
-                              (f:lookup new-checksums x))
-                            x))
-                        (:arg :seq new-config-fset))))
+               (lambda (x)
+                 (cons
+                   (decide-config-fate
+                     (f:lookup old-config-sums x)
+                     (f:lookup current-checksums x)
+                     (f:lookup new-checksums x))
+                   x))
+               (:arg :seq new-config-fset))))
          (incontig-configs
            (f:set-difference old-config-fset contig-config-files))
          (put-aside-paths
@@ -319,8 +319,8 @@
     (fs:remove-files
       root-path
       (gmap:gmap (:result list)
-                 #'entry-path
-                 (:arg :list (cdr (assoc :normal-file old-files)))))
+        #'entry-path
+        (:arg :list (cdr (assoc :normal-file old-files)))))
     (let* ((updated-store
              (db:remove-uses
                (db:remove-files store exist-pkg-id)
@@ -348,12 +348,12 @@
         (values
           (list :put-aside
                 (f:convert 'fset:set
-                  (gmap:gmap (:result list :filterp :id)
-                    (lambda (p)
-                      (when (uiop:file-exists-p
-                             (merge-pathnames p root-path))
-                        p))
-                    (:arg :seq config-paths))))
+                           (gmap:gmap (:result list :filterp :id)
+                             (lambda (p)
+                               (when (uiop:file-exists-p
+                                       (merge-pathnames p root-path))
+                                 p))
+                             (:arg :seq config-paths))))
           store))))
 
 (defun install-package-from-zip (options store downloaded-zip)
@@ -370,8 +370,8 @@
            (append
              zip-files
              (gmap:gmap (:result list)
-                        (lambda (gf) (list :path gf :is-directory nil))
-                        (:arg :seq ghost-files))))
+               (lambda (gf) (list :path gf :is-directory nil))
+               (:arg :seq ghost-files))))
          (conflicts
            (package-file-conflicts store package-name new-files)))
     (when conflicts
@@ -421,9 +421,9 @@
     (lambda (store)
       (let* ((dependencies
                (gmap:gmap (:result list)
-                          (lambda (d)
-                            (cons d (db:package-id store d)))
-                          (:arg :seq (getf options :package-dependency))))
+                 (lambda (d)
+                   (cons d (db:package-id store d)))
+                 (:arg :seq (getf options :package-dependency))))
              (dependencies-status
                (group-by (lambda (pair)
                            (if (null (cdr pair)) :unmet :met))
@@ -448,12 +448,12 @@
                               (db:package-files store package-name)))
          (config-paths
            (gmap:gmap (:result list :filterp :id)
-                      #'entry-path
-                      (:arg :list (cdr (assoc :config-file old-files)))))
+             #'entry-path
+             (:arg :list (cdr (assoc :config-file old-files)))))
          (normal-paths
            (gmap:gmap (:result list :filterp :id)
-                      #'entry-path
-                      (:arg :list (cdr (assoc :normal-file old-files))))))
+             #'entry-path
+             (:arg :list (cdr (assoc :normal-file old-files))))))
     (fs:backup-all root-path config-paths
                    (format nil "~a.~a.backup"
                            package-name (getf package-info :version)))
@@ -486,9 +486,9 @@
                          (getf package-info :name)))
                      (remove-infos
                        (gmap:gmap (:result list)
-                                  (lambda (i)
-                                    (db:package-info-by-id store i))
-                                  (:arg :seq remove-ids))))
+                         (lambda (i)
+                           (db:package-info-by-id store i))
+                         (:arg :seq remove-ids))))
                 (cond
                   ((getf options :cascade)
                    (setf removed remove-infos)

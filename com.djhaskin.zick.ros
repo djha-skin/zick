@@ -10,11 +10,11 @@ exec ros -Q -- $0 "$@"
   (asdf:load-system :com.djhaskin.zick))
 
 (defpackage :ros.script.com.djhaskin.zick
-  (:use :cl))
+  (:use #:cl))
 (in-package :ros.script.com.djhaskin.zick)
 
 (defun main (&rest argv)
   (sb-ext:exit
     :code
     (nth-value 0
-      (apply #'com.djhaskin.zick:main argv))))
+               (apply #'com.djhaskin.zick:main argv))))
