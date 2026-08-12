@@ -1,0 +1,78 @@
+#!/bin/sh
+# Black-box test: `zick add --json-download-authorizations` downloads
+# from an auth-protected fixture server (user mode, password code);
+# without the authorizations the download is refused.  Run from the
+# project root (see test-all).
+set -eu
+
+root_path=${PWD}
+fixture_path=${root_path}/tests/resources/fixture
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+test_home=${root_path}/tests/resources/data/download-auth
+port=${FIXTURE_AUTH_PORT:-18446}
+
+rm -rf "${test_home}"
+mkdir -p "${test_home}/proj"
+
+# The fixture server in --require-auth mode on its own port.
+"${fixture_path}/fixture-server.py" \
+    --port "${port}" \
+    --wwwroot "${fixture_path}/wwwroot" \
+    --cert "${fixture_path}/server.pem" \
+    --require-auth \
+    > /tmp/zick-auth-server.log 2>&1 &
+server_pid=$!
+trap 'kill "${server_pid}" 2>/dev/null || true' EXIT INT TERM
+
+auth_url=https://127.0.0.1:${port}
+export FIXTURE_AUTH_URL=${auth_url}
+
+ready=0
+attempts=0
+while [ "${attempts}" -lt 50 ]; do
+    if curl -sk --max-time 2 -o /dev/null "${auth_url}/a.zip" \
+        2>/dev/null; then
+        ready=1
+        break
+    fi
+    attempts=$((attempts + 1))
+    sleep 0.2
+done
+if [ "${ready}" -eq 0 ]; then
+    echo "auth fixture server failed to answer" >&2
+    cat /tmp/zick-auth-server.log >&2
+    exit 1
+fi
+
+"${runthis}" init -d "${test_home}/proj" > /dev/null 2>&1
+
+# Without authorizations the download is refused.
+set +e
+"${runthis}" add -d "${test_home}/proj" \
+    -k a -V 0.1.0 -l "${auth_url}/a.zip" -n \
+    > "${test_home}/refused.nrdl" 2>&1
+refused_exit=$?
+set -e
+[ "${refused_exit}" -ne 0 ]
+
+# With --json-download-authorizations it succeeds and unpacks.
+"${runthis}" add -d "${test_home}/proj" \
+    -k a -V 0.1.0 -l "${auth_url}/a.zip" -n \
+    --json-download-authorizations \
+    '{"127.0.0.1": {"type": "basic", "username": "mode", "password": "code"}}' \
+    > "${test_home}/add.nrdl" 2>&1
+grep -q 'result successful' "${test_home}/add.nrdl"
+[ -f "${test_home}/proj/a/poem.txt" ]
+grep -q 'stop this feeling' "${test_home}/proj/a/poem.txt"
+
+# Wrong credentials are refused too.
+set +e
+"${runthis}" add -d "${test_home}/proj" \
+    -k b -V 0.1.0 -l "${auth_url}/b.zip" -n \
+    --json-download-authorizations \
+    '{"127.0.0.1": {"type": "basic", "username": "mode", "password": "wrong"}}' \
+    > "${test_home}/wrong.nrdl" 2>&1
+wrong_exit=$?
+set -e
+[ "${wrong_exit}" -ne 0 ]
+echo "test-download-auth: ok"

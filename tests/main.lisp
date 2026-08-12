@@ -15,6 +15,7 @@
     #:save-store)
   (:import-from #:com.djhaskin.zick/tests/package
     #:http-serve-once
+    #:http-serve-once-auth
     #:make-zip
     #:project-dir
     #:read-text-file
@@ -82,6 +83,33 @@
   :parent nil
   "An unknown subcommand exits with CLIFF's usage error code (64)."
   (is = 64 (main "no-such-subcommand")))
+
+;;; Download authorizations parsing
+
+(define-test json-download-authorizations-parses-records
+  :parent nil
+  "json-download-authorizations-to-table interns host keys and
+   converts each record to fs:download's keyword-keyed shape, with
+   :TYPE kept as a string and :HEADERS as an alist."
+  (let* ((json (concatenate
+                 'string
+                 "{\"example.com\": {\"type\": \"basic\", "
+                 "\"username\": \"mode\", \"password\": \"code\"}, "
+                 "\"api.example.com\": {\"type\": \"header\", "
+                 "\"headers\": {\"X-Key\": \"value\"}}}"))
+         (table
+           (com.djhaskin.zick::json-download-authorizations-to-table
+             json)))
+    ;; Host keys are interned as upcased keywords.
+    (is string= "mode"
+        (gethash :username
+                 (gethash :|EXAMPLE.COM| table)))
+    (is string= "basic"
+        (gethash :type (gethash :|EXAMPLE.COM| table)))
+    ;; :headers is an alist of conses, as dexador expects.
+    (is equal '(("X-Key" . "value"))
+        (gethash :headers
+                 (gethash :|API.EXAMPLE.COM| table)))))
 
 ;;; init
 
@@ -216,6 +244,43 @@
           (write-text-file (merge-pathnames "app.txt" proj) "tampered")
           (is = 4 (cli proj "verify" "-k" "a"))
           (is = 3 (cli proj "verify" "-k" "ghost")))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test add-with-json-download-authorizations
+  :parent nil
+  "zick add --json-download-authorizations supplies basic auth to the
+   HTTP client; without it, downloading from an auth-protected server
+   fails."
+  (let* ((root (temporary-dir "zick-cli-auth"))
+         (proj (project root))
+         (src (source-dir root))
+         (zip-path (make-zip
+                     root (write-source-fixture
+                            src '(("app.txt" . "app content")))
+                     "pkg.zip"))
+         (url (http-serve-once-auth zip-path :connections 2))
+         (auth-json
+           (concatenate
+             'string
+             "{\"127.0.0.1\": {\"type\": \"basic\", "
+             "\"username\": \"mode\", \"password\": \"code\"}}")))
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          ;; Without authorizations the download is refused.
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "add" "-k" "a"
+                                             "-V" "0.1.0" "-l" url)
+            (true (plusp exit))
+            (true (search "401" out)))
+          ;; With --json-download-authorizations it succeeds and the
+          ;; archive is unpacked.
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0" "-l" url
+                       "--json-download-authorizations" auth-json))
+          (true (uiop:file-exists-p (merge-pathnames "app.txt" proj)))
+          (is string= "app content"
+              (read-text-file (merge-pathnames "app.txt" proj))))
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
 

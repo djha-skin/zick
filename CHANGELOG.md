@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dsolv-style POSIX shell scripts (`tests/resources/scripts/test-*`)
   covering init/add/info/files/verify (exit codes 0/3/4)/remove/
   dependers/dependees, run by `make test-black-box`.
+- CLI download authorizations: `zick add` accepts
+  `--json-download-authorizations` (per-host `basic`/`header`/
+  `oauth-token` records, parsed with NRDL into `fs:download`'s auth
+  table), and `-n`/`--enable-insecure` reaches the HTTP client for
+  self-signed fixtures.  CLI subcommand functions renamed to standard
+  Common Lisp names (`add-command`, `files-command`, ...; no `!`
+  suffix), per the style guide.
   `path-to-connection-string`, with a Parachute test suite (18
   assertions) including a cross-process lock-contention test.
 - Port of `zic.package`: install/remove/verify of packages against

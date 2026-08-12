@@ -233,6 +233,81 @@
       :name "zick-test-http")
     url))
 
+(defun http-serve-once-auth (path &key (connections 1))
+  "Serve the file at PATH over CONNECTIONS HTTP GETs on an ephemeral
+   local port, demanding HTTP basic auth (user MODE, password CODE)
+   and replying 401 otherwise.  Returns the URL to fetch it from.
+
+   Like http-serve-once, but for exercising download authorizations.
+   Pass CONNECTIONS when the caller will fetch more than once (e.g.
+   a refused attempt followed by an authorized one)."
+  (let* ((server (usocket:socket-listen "127.0.0.1" 0 :reuse-address t))
+         (port (usocket:get-local-port server))
+         (url (format nil "http://127.0.0.1:~d/~a"
+                      port (file-namestring path))))
+    (bt:make-thread
+      (lambda ()
+        (unwind-protect
+            (handler-case
+                (loop repeat connections do
+                      (let* ((conn (usocket:socket-accept
+                                     server :element-type '(unsigned-byte 8)))
+                             (binary (usocket:socket-stream conn))
+                             (stream (flexi-streams:make-flexi-stream
+                                       binary :external-format :latin-1))
+                             (crlf (format nil "~C~C" #\Return #\Newline)))
+                        (unwind-protect
+                            (progn
+                              ;; Read the request headers, looking for the
+                              ;; expected basic-auth header (base64 of
+                              ;; "mode:code").
+                              (let ((authorized nil))
+                                (loop for line = (read-line stream nil nil)
+                                      while (and line
+                                                 (plusp (length
+                                                          (string-trim
+                                                            '(#\Return
+                                                              #\Newline)
+                                                            line))))
+                                      do (when (and (null authorized)
+                                                    (search
+                                                      "Authorization: Basic"
+                                                      line))
+                                           ;; bW9kZTpjb2Rl = base64 of
+                                           ;; "mode:code".
+                                           (setf authorized
+                                                 (search
+                                                   "bW9kZTpjb2Rl" line))))
+                                (if authorized
+                                    (let* ((octets (read-file-bytes path))
+                                           (header
+                                             (concatenate
+                                               'string
+                                               "HTTP/1.1 200 OK" crlf
+                                               "Content-Length: "
+                                               (write-to-string
+                                                 (length octets))
+                                               crlf "Connection: close"
+                                               crlf crlf)))
+                                      (write-string header stream)
+                                      (write-string
+                                        (map 'string #'code-char octets)
+                                        stream)
+                                      (finish-output stream))
+                                    (let ((header
+                                            (concatenate
+                                              'string
+                                              "HTTP/1.1 401 Unauthorized" crlf
+                                              "Content-Length: 0" crlf
+                                              "Connection: close" crlf crlf)))
+                                      (write-string header stream)
+                                      (finish-output stream)))))
+                          (ignore-errors (close stream)))))
+              (error () nil))
+          (ignore-errors (usocket:socket-close server))))
+      :name "zick-test-http-auth")
+    url))
+
 ;;; Graph linearization (zic's package_test.clj)
 
 (defun fighter (node)

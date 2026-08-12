@@ -139,6 +139,43 @@
     (nrdl:to-fset (nrdl:parse-from
                     (make-string-input-stream json-string)))))
 
+(defun keywordize-auth-record (record)
+  "Return RECORD (a string-keyed hash table from NRDL) as a hash
+   table keyed by keywords, with :TYPE left as its string value and
+   :HEADERS as an alist, matching fs:download's authorization record
+   contract."
+  (let ((result (make-hash-table :test 'equal)))
+    (maphash
+      (lambda (k v)
+        (let ((key (intern (string-upcase k) :keyword)))
+          (setf (gethash key result)
+                (if (and (eql key :headers)
+                         (hash-table-p v))
+                    (loop for hk being the hash-keys of v
+                          using (hash-value hv)
+                          collect (cons hk hv))
+                    v))))
+      record)
+    result))
+
+(defun json-download-authorizations-to-table (json-string)
+  "Parse the JSON download-authorizations string into a hash table
+   keyed by host keyword, each value an authorization record hash
+   table, matching fs:download's contract.
+
+   The JSON is the per-host map zic's problems.md describes, e.g.
+   {\"djhaskin987.me\": {\"type\": \"basic\", \"username\": \"mode\",
+   \"password\": \"code\"}}."
+  (let ((parsed (nrdl:parse-from
+                  (make-string-input-stream json-string)))
+        (result (make-hash-table :test 'equal)))
+    (maphash
+      (lambda (host record)
+        (setf (gethash (intern (string-upcase host) :keyword) result)
+              (keywordize-auth-record record)))
+      parsed)
+    result))
+
 (defun find-marking-file-compat (start)
   "Find the zick marking file at or above START, preferring `.zick-db`
    and falling back to the deprecated `.zic-db` (with a warning)."
@@ -151,7 +188,7 @@
 
 ;;; Subcommands
 
-(defun add! (options)
+(defun add-command (options)
   "Install the package described by the options."
   (let ((opts (hash-to-plist options)))
     (pkg:install-package opts)
@@ -159,10 +196,10 @@
       `((:status . :successful)
         (:result . :successful)))))
 
-(defun files! (options)
+(defun files-command (options)
   "List the files owned by a package."
   (when (null (gethash :package-name options))
-    (return-from files!
+    (return-from files-command
                  (exit-with :cl-usage-error *package-name-required*)))
   (let* ((opts (hash-to-plist options))
          (files (pkg:get-package-files opts)))
@@ -175,10 +212,10 @@
             (:result . :package-found)
             (:package-files . ,(mapcar #'plist-to-hash files)))))))
 
-(defun info! (options)
+(defun info-command (options)
   "Show information about a package."
   (when (null (gethash :package-name options))
-    (return-from info!
+    (return-from info-command
                  (exit-with :cl-usage-error *package-name-required*)))
   (let* ((opts (hash-to-plist options))
          (info (pkg:get-package-info opts)))
@@ -191,10 +228,10 @@
             (:result . :package-found)
             (:package-information . ,(plist-to-hash info)))))))
 
-(defun dependers! (options)
+(defun dependers-command (options)
   "List the packages that depend on a package."
   (when (null (gethash :package-name options))
-    (return-from dependers!
+    (return-from dependers-command
                  (exit-with :cl-usage-error *package-name-required*)))
   (let* ((opts (hash-to-plist options))
          (dependers (pkg:get-package-dependers opts)))
@@ -207,10 +244,10 @@
             (:result . :package-found)
             (:package-dependers . ,(mapcar #'plist-to-hash dependers)))))))
 
-(defun dependees! (options)
+(defun dependees-command (options)
   "List the packages a package depends on."
   (when (null (gethash :package-name options))
-    (return-from dependees!
+    (return-from dependees-command
                  (exit-with :cl-usage-error *package-name-required*)))
   (let* ((opts (hash-to-plist options))
          (dependees (pkg:get-package-dependees opts)))
@@ -223,13 +260,13 @@
             (:result . :package-found)
             (:package-dependees . ,(mapcar #'plist-to-hash dependees)))))))
 
-(defun verify! (options)
+(defun verify-command (options)
   "Verify the files of a package on disk.
 
    Exits 3 when the package is not installed and 4 when verification
    finds failures, mirroring zic."
   (when (null (gethash :package-name options))
-    (return-from verify!
+    (return-from verify-command
                  (exit-with :cl-usage-error *package-name-required*)))
   (let* ((opts (hash-to-plist options))
          (info (pkg:get-package-info opts)))
@@ -248,10 +285,10 @@
                       (cons :result :package-found)
                       (cons :verification-results
                             (verification-to-data results)))))))))
-(defun remove! (options)
+(defun remove-command (options)
   "Remove a package from the installation."
   (when (null (gethash :package-name options))
-    (return-from remove!
+    (return-from remove-command
                  (exit-with :cl-usage-error *package-name-required*)))
   (let* ((opts (hash-to-plist options))
          (removed (pkg:remove-package opts)))
@@ -265,10 +302,11 @@
             (:dry-run . ,(getf opts :dry-run))
             (:removed-packages . ,(mapcar #'plist-to-hash removed)))))))
 
-(defun init! (options)
+(defun init-command (options)
   "Initialize the database in the start directory.
 
-   The database is created lazily when opened, mirroring zic's init!."
+   The database is created lazily when opened, mirroring zic's
+   init."
   (let* ((start-dir (getf (hash-to-plist options) :start-directory))
          (start-path
            (uiop:ensure-directory-pathname
@@ -276,12 +314,12 @@
          (conn (session:path-to-connection-string
                  (merge-pathnames ".zick-db/" start-path))))
     (session:with-database conn
-      (lambda (store) (db:init-database conn)))
+                           (lambda (store) (db:init-database conn)))
     (alexandria:alist-hash-table
       `((:status . :successful)
         (:result . :successful)))))
 
-(defun list! (options)
+(defun list-command (options)
   "List installed packages.  Not yet implemented (tracked by its own
    bead)."
   (declare (ignore options))
@@ -289,7 +327,7 @@
     `((:status . :successful)
       (:result . :noop))))
 
-(defun orphans! (options)
+(defun orphans-command (options)
   "List orphaned files.  Not yet implemented (tracked by its own
    bead)."
   (declare (ignore options))
@@ -323,6 +361,10 @@
       (when (stringp metadata)
         (setf (gethash :package-metadata options)
               (json-metadata-to-fset metadata))))
+    (let ((authorizations (gethash :download-authorizations options)))
+      (when (stringp authorizations)
+        (setf (gethash :download-authorizations options)
+              (json-download-authorizations-to-table authorizations))))
     options))
 
 ;;; Default function
@@ -369,16 +411,16 @@
       :version *zick-version*
       :subcommand-functions
       (list
-        (cons '("add") #'add!)
-        (cons '("files") #'files!)
-        (cons '("info") #'info!)
-        (cons '("init") #'init!)
-        (cons '("list") #'list!)
-        (cons '("orphans") #'orphans!)
-        (cons '("remove") #'remove!)
-        (cons '("dependers") #'dependers!)
-        (cons '("dependees") #'dependees!)
-        (cons '("verify") #'verify!))
+        (cons '("add") #'add-command)
+        (cons '("files") #'files-command)
+        (cons '("info") #'info-command)
+        (cons '("init") #'init-command)
+        (cons '("list") #'list-command)
+        (cons '("orphans") #'orphans-command)
+        (cons '("remove") #'remove-command)
+        (cons '("dependers") #'dependers-command)
+        (cons '("dependees") #'dependees-command)
+        (cons '("verify") #'verify-command))
       :default-function #'default-fn
       :defaults
       (list (cons :output-format "nrdl")
@@ -395,6 +437,8 @@
         ("-V" . "--set-package-version")
         ("-l" . "--set-package-location")
         ("-m" . "--set-package-metadata")
+        ("--json-download-authorizations"
+         . "--set-download-authorizations")
         ("-u" . "--add-package-dependency")
         ("-W" . "--disable-download-package")
         ("-w" . "--enable-download-package")
