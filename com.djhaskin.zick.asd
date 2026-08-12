@@ -22,7 +22,8 @@
                )
   :components ((:module "src"
                 :components
-                ((:file "main"))))
+                ((:file "fs")
+                 (:file "main"))))
   :description "Zip files In Concert: package manager for source-code repos."
   :in-order-to ((test-op (test-op "com.djhaskin.zick/tests"))))
 
@@ -36,8 +37,11 @@
                )
   :components ((:module "tests"
                 :components
-                ((:file "main"))))
+                ((:file "main")
+                 (:file "fs"))))
   :description "Test system for zick."
   :perform (asdf:test-op (op c)
                     (uiop:symbol-call :parachute :test
-                      '#:com.djhaskin.zick/tests/main)))
+                      (list
+                        '#:com.djhaskin.zick/tests/main
+                        '#:com.djhaskin.zick/tests/fs))))

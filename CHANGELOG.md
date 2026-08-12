@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   system, CLIFF-based entry point, Roswell script, Makefile, and
   ocicl dependency pinning.
 - Smoke tests for the CLI entry point.
+- Port of `zic.fs`: archive handling via zippy, SHA-256/CRC-32 via
+  ironclad, downloads via dexador/quri, and `.zic-db` marking-file
+  search, with a Parachute test suite (60 assertions).
 
 ### Changed
 
