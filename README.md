@@ -180,8 +180,8 @@ use case needs different values.
 The Lisp test suite runs under [Parachute](https://github.com/Shinmera/parachute)
 via ASDF:
 
-```bash
-swanky '(asdf:test-system :com.djhaskin.zick)'
+```lisp
+(asdf:test-system :com.djhaskin.zick)
 ```
 
 The black-box suite exercises the built binary end to end against a local
