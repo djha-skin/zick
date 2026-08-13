@@ -90,6 +90,13 @@ jobs:
           rpmbuild -bs packaging/zick.spec
           cp ~/rpmbuild/SRPMS/*.src.rpm "$GITHUB_WORKSPACE/"
 
+      # The generic tarball (runs on any modern-glibc distro) rides on the
+      # ubuntu-24.04 leg; it is the "everyone else" Linux artifact.
+      - name: package generic tarball
+        if: matrix.name == 'ubuntu-2404'
+        run: |
+          tar czf zick-linux-x86_64.tar.gz -C "$GITHUB_WORKSPACE" zick
+
       - name: upload source package
         uses: actions/upload-artifact@v4
         with:
@@ -99,6 +106,7 @@ jobs:
             zick_*.dsc
             zick_*.debian.tar.xz
             zick_*.orig.tar.gz
+            zick-linux-x86_64.tar.gz
 
   macos:
     name: macos (${{ matrix.arch }})

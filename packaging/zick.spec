@@ -62,5 +62,5 @@ cd "$(mktemp -d)"
 %doc README.md CHANGELOG.md
 
 %changelog
-* Wed Aug 13 2026 Daniel Jay Haskin <djhaskin987@gmail.com> - 0.1.0-1
+* Thu Aug 13 2026 Daniel Jay Haskin <djhaskin987@gmail.com> - 0.1.0-1
 - Initial release.

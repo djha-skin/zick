@@ -1,0 +1,62 @@
+# Maintainer: Daniel Jay Haskin <djhaskin987@gmail.com>
+# Contributor: Daniel Jay Haskin <djhaskin987@gmail.com>
+#
+# From-source build for Arch.  The single source is the combined release
+# tarball (zick + the sibling systems cliff/nrdl/svers, assembled by
+# scripts/make-source-tarball.sh and attached to the GitHub Release), so the
+# build is self-contained except for the ocicl dependency downloads.
+
+pkgname=zick
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A zip-based package manager for Common Lisp systems"
+arch=('x86_64')
+url="https://github.com/djha-skin/zick"
+license=('MIT')
+depends=('glibc')
+makedepends=('sbcl' 'git' 'curl')
+source=("zick-${pkgver}-src.tar.gz::https://github.com/djha-skin/zick/releases/download/v${pkgver}/zick-${pkgver}-src.tar.gz")
+# Set to the real sha256sum of the release tarball on release (keep SKIP
+# until then; see the checksums.sha256 asset on the release page).
+sha256sums=('SKIP')
+
+build() {
+    # Keep the ocicl runtime and downloaded deps inside $srcdir so the
+    # build touches nothing outside it.
+    export HOME="$srcdir"
+    mkdir -p "$srcdir/ocicl-bin"
+
+    curl -fSsL -o "$srcdir/ocicl.tgz" \
+        https://github.com/ocicl/ocicl/releases/download/v2.17.0/ocicl-2.17.0-linux-amd64.tar.gz
+    tar xzf "$srcdir/ocicl.tgz" -C "$srcdir"
+    mv "$srcdir/ocicl" "$srcdir/ocicl-bin/"
+    export PATH="$srcdir/ocicl-bin:$PATH"
+
+    ocicl setup
+
+    cd "$srcdir/zick"
+    ocicl install
+
+    # Make the vendored siblings visible to ASDF (ci-build.lisp loads the
+    # ocicl runtime, which resolves ocicl.csv deps; ASDF finds siblings here).
+    mkdir -p "$srcdir/common-lisp"
+    cp -r ../cliff ../nrdl ../svers "$srcdir/common-lisp/"
+
+    sbcl --dynamic-space-size 4096 --control-stack-size 32 \
+         --non-interactive --load scripts/ci-build.lisp
+}
+
+check() {
+    TMPD="$(mktemp -d)"
+    cd "$TMPD"
+    "$srcdir/zick/zick" init
+    "$srcdir/zick/zick" list
+}
+
+package() {
+    cd "$srcdir/zick"
+    install -Dm755 zick "$pkgdir/usr/bin/zick"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/zick/LICENSE"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/zick/README.md"
+    install -Dm644 CHANGELOG.md "$pkgdir/usr/share/doc/zick/CHANGELOG.md"
+}
