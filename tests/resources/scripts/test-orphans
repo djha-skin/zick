@@ -1,0 +1,45 @@
+#!/bin/sh
+# Black-box test: `zick orphans` lists the installed packages that
+# nothing depends on.  Installing a package that depends on b and then
+# removing the depender leaves b reported by zick orphans.
+# Run from the project root (see test-all).
+set -eu
+
+root_path=${PWD}
+runthis=${ZICK_BIN:-${root_path}/com.djhaskin.zick}
+fixture_url=${FIXTURE_URL:-https://127.0.0.1:8443}
+test_home=${root_path}/tests/resources/data/orphans
+
+rm -rf "${test_home}"
+mkdir -p "${test_home}/proj"
+
+"${runthis}" init -d "${test_home}/proj" > /dev/null 2>&1
+
+# A standalone install is orphaned (nothing depends on it).
+"${runthis}" add -d "${test_home}/proj" \
+    -k a -V 0.1.0 -l "${fixture_url}/a.zip" -n > /dev/null 2>&1
+"${runthis}" orphans -d "${test_home}/proj" \
+    > "${test_home}/orphans1.nrdl" 2>&1
+grep -q 'result successful' "${test_home}/orphans1.nrdl"
+grep -q 'name "a"' "${test_home}/orphans1.nrdl"
+
+# Once b depends on a, a is no longer orphaned; b is.
+"${runthis}" add -d "${test_home}/proj" \
+    -k b -V 0.1.0 -l "${fixture_url}/b.zip" -n -u a > /dev/null 2>&1
+"${runthis}" orphans -d "${test_home}/proj" \
+    > "${test_home}/orphans2.nrdl" 2>&1
+grep -q 'result successful' "${test_home}/orphans2.nrdl"
+grep -q 'name "b"' "${test_home}/orphans2.nrdl"
+if grep -q 'name "a"' "${test_home}/orphans2.nrdl"; then
+    echo "test-orphans: a still reported while b depends on it" >&2
+    exit 1
+fi
+
+# Removing the depender orphans the dependency again.
+"${runthis}" remove -d "${test_home}/proj" -k b > /dev/null 2>&1
+"${runthis}" orphans -d "${test_home}/proj" \
+    > "${test_home}/orphans3.nrdl" 2>&1
+grep -q 'result successful' "${test_home}/orphans3.nrdl"
+grep -q 'name "a"' "${test_home}/orphans3.nrdl"
+
+echo "test-orphans: ok"

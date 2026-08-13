@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `zick orphans` subcommand: lists the installed packages that nothing
+  depends on (the source nodes of the dependency graph).  Installing a
+  package that depends on another and then removing the depender leaves
+  the dependency reported by `orphans`.
 - Project scaffolding: ASDF system `com.djhaskin.zick` with a tests
   system, CLIFF-based entry point, Roswell script, Makefile, and
   ocicl dependency pinning.

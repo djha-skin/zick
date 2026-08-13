@@ -181,6 +181,16 @@
     (is string= "b"
         (getf (first (db:package-dependees store "a")) :name))))
 
+(define-test used-somewhere-p
+  :parent nil
+  "used-somewhere-p reports whether any package depends on the
+   given one."
+  (let ((store (sample-store)))
+    ;; b depends on a and c; c depends on a.
+    (true (db:used-somewhere-p store "a"))
+    (true (db:used-somewhere-p store "c"))
+    (true (null (db:used-somewhere-p store "b")))))
+
 (define-test dependers
   :parent nil
   "dependers-by-id and package-dependers list the packages depending

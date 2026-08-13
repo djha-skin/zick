@@ -36,6 +36,7 @@
     #:get-package-info
     #:get-package-dependees
     #:get-package-dependers
+    #:get-orphaned-packages
     ;; Downloading
     #:download-package
     ;; Installation
@@ -140,6 +141,20 @@
     (getf options :db-connection-string)
     (lambda (store)
       (db:package-dependers store (getf options :package-name)))))
+
+(defun get-orphaned-packages (options)
+  "Return the presented info of the orphaned packages of the project
+   at :DB-CONNECTION-STRING: the installed packages that nothing
+   depends on (the source nodes of the dependency graph)."
+  (session:with-database
+    (getf options :db-connection-string)
+    (lambda (store)
+      (gmap:gmap (:result list :filterp :id)
+        (lambda (name pkg)
+          (declare (ignore pkg))
+          (when (null (db:used-somewhere-p store name))
+            (db:package-info store name)))
+        (:arg :map (db:store-packages store))))))
 
 ;;; Downloading
 

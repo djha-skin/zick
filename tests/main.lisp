@@ -170,6 +170,41 @@
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
 
+(define-test orphans-reports-packages-nothing-depends-on
+  :parent nil
+  "zick orphans lists the installed packages that nothing depends
+   on; installing a package that depends on another and then removing
+   the depender leaves the dependency reported."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-orphans")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          ;; A standalone install is orphaned (nothing depends on it).
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0"
+                       "-l" "https://example.com/a.zip" "-W"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "orphans")
+            (is = 0 exit)
+            (true (search "name \"a\"" out)))
+          ;; Once b depends on a, a is no longer orphaned; b is.
+          (is = 0 (cli proj "add" "-k" "b" "-V" "0.1.0"
+                       "-l" "https://example.com/b.zip" "-W"
+                       "-u" "a"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "orphans")
+            (is = 0 exit)
+            (true (search "name \"b\"" out))
+            (true (not (search "name \"a\"" out))))
+          ;; Removing the depender orphans the dependency again.
+          (is = 0 (cli proj "remove" "-k" "b"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "orphans")
+            (is = 0 exit)
+            (true (search "name \"a\"" out))
+            (true (not (search "name \"b\"" out)))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
 ;;; Missing-argument errors
 
 (define-test query-subcommands-require-package-name

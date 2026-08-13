@@ -12,6 +12,7 @@
     #:get-package-info
     #:get-package-dependees
     #:get-package-dependers
+    #:get-orphaned-packages
     #:download-package
     #:decide-config-fate
     #:package-file-conflicts
@@ -595,6 +596,34 @@
                      (install-options root "a"))))
             (is = 1 (length dependers))
             (is string= "b" (getf (first dependers) :name))))
+      (uiop:delete-directory-tree root :validate t))))
+
+(define-test orphans-are-packages-nothing-depends-on
+  :parent nil
+  "get-orphaned-packages lists the installed packages that no other
+   package depends on: a standalone install and a dependency whose
+   depender was removed are both orphans."
+  (let* ((root (temporary-dir "zick-orphans"))
+         (opts-a (install-options root "a")))
+    (unwind-protect
+        (progn
+          (ensure-directories-exist root)
+          ;; A standalone install is orphaned (nothing depends on it).
+          (package:install-package opts-a)
+          (let ((orphans (package:get-orphaned-packages opts-a)))
+            (is = 1 (length orphans))
+            (is string= "a" (getf (first orphans) :name)))
+          ;; Once b depends on a, a is no longer orphaned; b is.
+          (package:install-package
+            (install-options root "b" :dependencies (list "a")))
+          (let ((orphans (package:get-orphaned-packages opts-a)))
+            (is = 1 (length orphans))
+            (is string= "b" (getf (first orphans) :name)))
+          ;; Removing the depender orphans the dependency again.
+          (package:remove-package (install-options root "b"))
+          (let ((orphans (package:get-orphaned-packages opts-a)))
+            (is = 1 (length orphans))
+            (is string= "a" (getf (first orphans) :name))))
       (uiop:delete-directory-tree root :validate t))))
 
 ;;; Downloading (local HTTP server)

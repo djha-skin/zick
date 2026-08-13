@@ -339,12 +339,14 @@
       (:result . :noop))))
 
 (defun orphans-command (options)
-  "List orphaned files.  Not yet implemented (tracked by its own
-   bead)."
-  (declare (ignore options))
-  (alexandria:alist-hash-table
-    `((:status . :successful)
-      (:result . :noop))))
+  "List the orphaned packages: the installed packages that nothing
+   depends on (the source nodes of the dependency graph)."
+  (let* ((opts (hash-to-plist options))
+         (orphans (pkg:get-orphaned-packages opts)))
+    (alexandria:alist-hash-table
+      `((:status . :successful)
+        (:result . :successful)
+        (:orphaned-packages . ,(mapcar #'plist-to-hash orphans))))))
 
 ;;; Setup
 
@@ -395,7 +397,7 @@
   (format t "  info        Show information about a package~%")
   (format t "  init        Initialize the zick database~%")
   (format t "  list        List installed packages~%")
-  (format t "  orphans     List orphaned files~%")
+  (format t "  orphans     List orphaned packages (nothing depends on them)~%")
   (format t "  remove      Remove a package from the installation~%")
   (format t "  dependers   List packages that depend on a package~%")
   (format t "  dependees   List packages a package depends on~%")

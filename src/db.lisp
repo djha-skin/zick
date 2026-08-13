@@ -57,6 +57,7 @@
     #:dependers-by-id
     #:package-dependers
     #:package-dependees
+    #:used-somewhere-p
     ;; Mutations
     #:add-package
     #:insert-file
@@ -286,6 +287,11 @@
             (when dep
               (present-package dep))))
         (:arg :seq (package-record-dependencies pkg))))))
+
+(defun used-somewhere-p (store package-name)
+  "Return non-nil when some package in STORE depends on
+   PACKAGE-NAME."
+  (not (null (dependers-by-id store package-name))))
 
 ;;; Mutations
 
