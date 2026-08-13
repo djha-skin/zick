@@ -4,6 +4,75 @@
 
 @image[src=assets/zick.png]()
 
-This page introduces zick.  Content lands here in the tutorial bead.
+zick is a package manager for project-level source-code repositories:
+it installs zip archives into a project tree, tracks which files each
+package owns, and verifies the result on disk.  The name is a backronym
+— **Zip files In Concert** — and the idea is to be the "RPM" or "DEB"
+for a project rather than for a whole machine.
+
+The mental model is small:
+
+@begin(list)
+@item(A project is marked by a @c(.zick-db) directory, found by walking
+up from where you run zick.  Everything zick knows about a project
+lives under that directory.)
+@item(Packages are plain zip archives served over HTTP(S).  @c(zick add)
+downloads one, unpacks it into the project tree, and records the result.)
+@item(The store — an NRDL document of installed packages and the files
+they own, with sizes and SHA-256 checksums — lives in the @c(.zick-db)
+directory.  It is the source of truth for what is installed.)
+@item(@c(zick verify) checks the files on disk against the store, so a
+@c(git clean), a bad deploy, or a partial restore can't silently break
+your environment.)
+@end(list)
+
+zick is built for two audiences:
+
+@begin(list)
+@item(Dev machines, where you set up the dependencies you need to do
+programming work — a toolchain bundle, a set of prebuilt libraries, a
+data pack.)
+@item(CI/CD, where a checkout plus @c(zick add) plus @c(zick verify) is
+a reproducible, auditable install step.)
+@end(list)
+
+@begin(section)
+@title(How zick Fits with the Resolver)
+
+zick pairs well with @link[uri="https://github.com/djha-skin/dsolv"](dsolv),
+a generic dependency resolver.  They are independent tools built to be
+used together:
+
+@begin(list)
+@item(dsolv reads a repository of cards describing versions and
+requirements, and tells you the exact set of versions a build needs —
+returning the URLs of the files to download.)
+@item(zick takes those URLs, downloads the archives, unpacks them into
+the project tree, tracks the files it owns, and verifies them.)
+@end(list)
+
+dsolv answers "what do we need?"; zick answers "make it so, and
+check."  This manual covers zick on its own; the pairing is shown in
+the @link[uri="a-longer-example.html"](longer example) and the
+@link[uri="architecture.html"](architecture) pages.
+
+@end(section)
+
+@begin(section)
+@title(What zick Does Not Do)
+
+zick is deliberately small:
+
+@begin(list)
+@item(It does not resolve versions.  You give @c(zick add) a name, a
+version, and a URL; zick installs exactly that.  Version selection is
+the resolver's job, not zick's.)
+@item(It does not build or compile anything.  Archives are unpacked as
+they are; publishing is just uploading a zip.)
+@item(It does not manage your whole machine.  zick installs into one
+project tree, and its ownership database lives in that project.)
+@end(list)
+
+@end(section)
 
 @end(section)

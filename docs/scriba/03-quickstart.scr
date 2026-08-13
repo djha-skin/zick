@@ -2,7 +2,196 @@
 
 @title(Quickstart)
 
-This page is a five-minute tour of zick.  Content lands here in the
-tutorial bead.
+This is a five-minute tour: initialize a project, install a package,
+look at what you got, verify it, and remove it.  Every command here
+works against a real zick build — run them in a scratch directory to
+follow along.
+
+@begin(section)
+@title(Set Up a Project)
+
+Make a directory and initialize it:
+
+@begin[lang=sh](code)
+mkdir my-project
+cd my-project
+zick init
+@end(code)
+
+@c(zick init) creates the @c(.zick-db) marking directory and the
+store.  zick finds the project by walking up from wherever you run it,
+looking for that directory — so from now on, running zick anywhere
+inside @c(my-project) (or below it) talks to this project.
+
+@end(section)
+
+@begin(section)
+@title(Install a Package)
+
+A package is a zip archive at a URL.  Install one with @c(zick add),
+naming it with @c(-k), versioning it with @c(-V), and locating it with
+@c(-l):
+
+@begin[lang=sh](code)
+zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
+@end(code)
+
+zick downloads the archive into a staging area, unpacks it into the
+project tree, and records the package and every file it owns — path,
+size, and SHA-256 checksum — in the store.  Success looks like:
+
+@begin[lang=nrdl](code)
+{
+    result successful
+    status successful
+}
+@end(code)
+
+Declare that one package depends on another with @c(-u) (the dependee
+must already be installed):
+
+@begin[lang=sh](code)
+zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
+@end(code)
+
+@c(-W) skips the download and records the package without unpacking
+its files — useful for metadata-only records, or for following along
+offline.  (The archive URLs in this tour are examples; substitute
+real archives you can download.)
+
+@end(section)
+
+@begin(section)
+@title(Look at What You Got)
+
+See what is installed:
+
+@begin[lang=sh](code)
+zick list
+@end(code)
+
+@begin[lang=nrdl](code)
+{
+    packages [
+        {
+            location "https://example.com/mylib-1.2.0.zip"
+            metadata [
+            ]
+            name "mylib"
+            version "1.2.0"
+        }
+        {
+            location "https://example.com/myapp.zip"
+            metadata [
+            ]
+            name "myapp"
+            version "0.1.0"
+        }
+    ]
+    result successful
+    status successful
+}
+@end(code)
+
+See the files a package owns:
+
+@begin[lang=sh](code)
+zick files -k mylib
+@end(code)
+
+@begin[lang=nrdl](code)
+{
+    package-files [
+        {
+            checksum "f5804ac61aa4b37500ea52077f984d7224a35d3e2d05644d62ac4940384cfa6e"
+            class normal-file
+            path "mylib/bin/tool"
+            size 44
+        }
+    ]
+    result package-found
+    status successful
+}
+@end(code)
+
+Ask who depends on whom:
+
+@begin[lang=sh](code)
+zick dependers -k mylib
+zick dependees -k myapp
+@end(code)
+
+@end(section)
+
+@begin(section)
+@title(Verify)
+
+Check that the files on disk still match what was installed:
+
+@begin[lang=sh](code)
+zick verify -k myapp
+@end(code)
+
+@begin[lang=nrdl](code)
+{
+    result package-found
+    status successful
+    verification-results [
+    ]
+}
+@end(code)
+
+zick exits 0 when everything checks out, 3 when the package is not
+installed, and 4 when verification finds problems (with the failing
+files listed under @c(verification-results)).  Try deleting one of the
+installed files and re-running @c(verify) to see the report — that is
+what a @c(git clean) or a bad deploy looks like to zick.
+
+@end(section)
+
+@begin(section)
+@title(Remove)
+
+Uninstall a package with @c(zick remove).  Its files are deleted (its
+configuration files are backed up first) and its record leaves the
+store:
+
+@begin[lang=sh](code)
+zick remove -k myapp
+@end(code)
+
+Removing a package that others depend on is an error unless you pass
+@c(-c) to cascade, removing the dependents too.  Preview a removal
+without touching anything with @c(-r):
+
+@begin[lang=sh](code)
+zick remove -k mylib -c -r
+@end(code)
+
+And when you want to find the cruft — packages nothing else depends
+on — ask zick:
+
+@begin[lang=sh](code)
+zick orphans
+@end(code)
+
+@end(section)
+
+@begin(section)
+@title(Next Steps)
+
+That is the whole loop.  From here:
+
+@begin(list)
+@item(The @link[uri="a-longer-example.html"](longer example) walks
+through a realistic install in a dev environment and in CI, including
+using zick together with the dependency resolver.)
+@item(The @link[uri="command-reference.html"](command reference)
+documents every subcommand, option, alias, and result in detail.)
+@item(The @link[uri="recipes.html"](recipes) page collects short
+how-tos: pinning versions, upgrades, configuration files, and more.)
+@end(list)
+
+@end(section)
 
 @end(section)

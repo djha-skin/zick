@@ -84,8 +84,10 @@ zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip -W
 
 @c(-W) (download disabled) is useful for recording metadata-only
 records, or for tests that exercise the store without network access.
-The package will have no files until you re-add it with downloading
-enabled.
+A @c(-W) record has no files; to install them later, re-add the
+package with downloading enabled — passing
+@c(-i)/@c(--enable-allow-inplace), since re-adding at the already-
+recorded version counts as an in-place replacement.
 
 @end(section)
 

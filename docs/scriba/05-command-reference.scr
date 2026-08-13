@@ -176,8 +176,10 @@ Result when the package is installed:
 @end(code)
 
 When the package is not installed, the result is
-@c(result not-found) and @c(package-files) is omitted.  File classes
-are @c(normal-file), @c(config-file), and @c(ghost-file).
+@c(result not-found) and @c(package-files) is omitted.  A package
+recorded without downloading (e.g. with @c(-W)) has no files and also
+reports @c(result not-found) until it is installed with files.  File
+classes are @c(normal-file), @c(config-file), and @c(ghost-file).
 
 @end(section)
 

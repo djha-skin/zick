@@ -2,7 +2,199 @@
 
 @title(A Longer Example)
 
-This page is a worked end-to-end example, including how zick and
-dsolv are used together.  Content lands here in the tutorial bead.
+The quickstart showed the whole loop.  This page works through a
+realistic scenario end to end: a small project that needs two binary
+dependencies, set up on a dev machine and then reproduced in CI — and,
+at the end, the same project using the dependency resolver to choose
+the versions.
+
+Imagine a project, @c(wallaby), that needs a prebuilt command-line tool
+(@c(wally)) and a data pack (@c(parks-data)) to build and run.
+
+@begin(section)
+@title(On a Dev Machine)
+
+@begin(section)
+@title(Initialize)
+
+@begin[lang=sh](code)
+mkdir wallaby
+cd wallaby
+zick init
+@end(code)
+
+@end(section)
+
+@begin(section)
+@title(Install the Dependencies)
+
+The tool is published as a zip with a @c(bin/wally) inside it:
+
+@begin[lang=sh](code)
+zick add -k wally -V 2.1.0 \
+    -l https://downloads.example.com/wally-2.1.0-linux-x64.zip
+@end(code)
+
+The data pack is versioned independently and takes a while to
+download, so record it without fetching it for now:
+
+@begin[lang=sh](code)
+zick add -k parks-data -V 2026.07 \
+    -l https://data.example.com/parks-2026.07.zip -W
+@end(code)
+
+zick's store now has two packages; @c(wally) has its files, and
+@c(parks-data) is recorded but not yet installed.
+
+@end(section)
+
+@begin(section)
+@title(Install the Rest Later)
+
+Later, when you have time for the download, complete the install by
+re-adding the package with downloading enabled.  Because the package
+is already recorded at this version, re-adding it counts as an
+in-place replacement, which zick refuses by default — pass
+@c(-i)/@c(--enable-allow-inplace) to allow it:
+
+@begin[lang=sh](code)
+zick add -k parks-data -V 2026.07 \
+    -l https://data.example.com/parks-2026.07.zip -i
+@end(code)
+
+The archive is fetched, unpacked, and the package's files are recorded.
+If a package version ever needs to change, re-add it with the new
+version and zick upgrades it in place, putting changed configuration
+files aside rather than clobbering local edits.
+
+@end(section)
+
+@begin(section)
+@title(Record What the Project Depends On)
+
+Declare that @c(wally) and @c(parks-data) belong to the project itself
+by installing a small source package that depends on both:
+
+@begin[lang=sh](code)
+zick add -k wallaby -V 0.1.0 \
+    -l https://downloads.example.com/wallaby-src.zip \
+    -u wally -u parks-data -W
+@end(code)
+
+Now the dependency graph is explicit: @c(wally) and @c(parks-data)
+have a depender, and the project's own package is its source.  That
+makes lifecycle questions answerable:
+
+@begin[lang=sh](code)
+zick dependers -k wally
+zick orphans
+@end(code)
+
+@end(section)
+
+@begin(section)
+@title(Verify Before You Trust the Tree)
+
+After a checkout, a restore, or any operation that might have touched
+the tree, check the whole install:
+
+@begin[lang=sh](code)
+zick verify -k wally
+zick verify -k parks-data
+@end(code)
+
+Each exits 0 when the files on disk match the store.  When one does
+not, it exits 4 and lists exactly which files are wrong and how
+(@c(file-missing), @c(size-discrepancy), @c(checksum-discrepancy), and
+so on) — the difference between "something might be off" and "this
+file at this path changed".
+
+@end(section)
+
+@begin(section)
+@title(Remove a Dependency Cleanly)
+
+When @c(wally) is no longer needed, remove it.  Nothing else depends on
+it, so a plain removal works:
+
+@begin[lang=sh](code)
+zick remove -k wally
+@end(code)
+
+Removing @c(wallaby) itself cascades to the dependencies it declares,
+so a full teardown is one command:
+
+@begin[lang=sh](code)
+zick remove -k wallaby -c
+@end(code)
+
+@end(section)
+
+@end(section)
+
+@begin(section)
+@title(In CI)
+
+The same project in CI is a checkout plus the same commands — which is
+the point: the install is scriptable and repeatable.
+
+@begin[lang=sh](code)
+git clone https://github.com/you/wallaby.git
+cd wallaby
+
+zick init
+zick add -k wally -V 2.1.0 \
+    -l https://downloads.example.com/wally-2.1.0-linux-x64.zip
+zick add -k parks-data -V 2026.07 \
+    -l https://data.example.com/parks-2026.07.zip
+zick add -k wallaby -V 0.1.0 \
+    -l https://downloads.example.com/wallaby-src.zip \
+    -u wally -u parks-data -W
+zick verify -k wally
+zick verify -k parks-data
+@end(code)
+
+Because @c(verify) checks the on-disk files against recorded checksums,
+this step fails the build when a download is corrupt, a file went
+missing, or the environment drifted — with a precise report, not a
+mysterious failure later.  Because the store lives in the project
+(check it into git along with the sources if you like), the same
+commands produce the same tree on every machine.
+
+@end(section)
+
+@begin(section)
+@title(Using zick with the Resolver)
+
+For a larger project the versions are chosen by a dependency resolver
+rather than by hand.  zick pairs with @link[uri="https://github.com/djha-skin/dsolv"](dsolv),
+the generic dependency resolver; the two are independent tools, built
+to pair: dsolv reads the requirements, decides which versions a build
+needs, and hands you the URLs of the artifacts; zick downloads those
+exact archives, installs them, and verifies them.
+
+Concretely, with a resolver producing the locations:
+
+@begin[lang=sh](code)
+# resolver emits the resolved set, e.g.:
+#   wally      2.1.0  https://downloads.example.com/wally-2.1.0-linux-x64.zip
+#   parks-data 2026.07 https://data.example.com/parks-2026.07.zip
+
+zick init
+zick add -k wally -V 2.1.0 \
+    -l https://downloads.example.com/wally-2.1.0-linux-x64.zip
+zick add -k parks-data -V 2026.07 \
+    -l https://data.example.com/parks-2026.07.zip
+zick verify -k wally
+zick verify -k parks-data
+@end(code)
+
+The division of labor keeps each tool small: the resolver has no
+opinion about file layout — it returns locations — and zick has no
+opinion about version selection — it takes the versions it is given.
+Each can be used alone, and together they make a build step that
+resolves, installs, and proves itself intact.
+
+@end(section)
 
 @end(section)

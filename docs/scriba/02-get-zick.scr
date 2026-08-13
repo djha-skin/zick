@@ -2,7 +2,76 @@
 
 @title(Get zick)
 
-This page explains how to obtain and build zick.  Content lands here
-in the tutorial bead.
+zick is a Common Lisp program, built with
+@link[uri="https://github.com/roswell/roswell"](Roswell) and
+@link[uri="https://github.com/ocicl/ocicl"](ocicl).  You build the
+@c(zick) executable yourself; there are no prebuilt binaries yet.
+
+@begin(section)
+@title(Prerequisites)
+
+@begin(list)
+@item(A recent @link[uri="https://www.sbcl.org/"](SBCL) — zick is
+developed against SBCL 2.x)
+@item(@link[uri="https://github.com/roswell/roswell"](Roswell), for
+@c(ros) and @c(ros build))
+@item(@link[uri="https://github.com/ocicl/ocicl"](ocicl), for
+dependencies)
+@end(list)
+
+@end(section)
+
+@begin(section)
+@title(Building from Source)
+
+Clone the repository:
+
+@begin[lang=sh](code)
+git clone https://github.com/djha-skin/zick.git
+cd zick
+@end(code)
+
+Install the dependencies (this uses the @c(ocicl.csv) manifest in the
+repository root):
+
+@begin[lang=sh](code)
+ocicl install
+@end(code)
+
+Build the executable:
+
+@begin[lang=sh](code)
+./scripts/build
+@end(code)
+
+The build script bakes the large heap and control-stack sizes zick
+needs for big repository resolutions into the binary, so no wrapper or
+environment variables are required at run time.  The result is
+@c(./com.djhaskin.zick) in the project root.  You can rename it to
+@c(zick) and put it on your @c(PATH):
+
+@begin[lang=sh](code)
+ln -s "$PWD/com.djhaskin.zick" ~/.local/bin/zick
+@end(code)
+
+To use the command names in this manual without a @c(PATH) change, the
+examples that follow assume @c(zick) is on your @c(PATH).  (If yours is
+still at @c(./com.djhaskin.zick), substitute it in.)
+
+@end(section)
+
+@begin(section)
+@title(Checking the Installation)
+
+Run zick with no arguments; it prints a short usage summary:
+
+@begin[lang=sh](code)
+zick
+@end(code)
+
+And @c(zick help) prints the full CLIFF help page: how options are
+gathered, the alias table, and the list of subcommands.
+
+@end(section)
 
 @end(section)

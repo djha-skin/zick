@@ -47,11 +47,91 @@
   <h1 class="doc-title">zick: Zip-based Package Manager » A Longer Example</h1>
   <article id="article" data-section="a-longer-example">
     <aside>
-      <ol class="toc"><li><a href="overview.html" data-node="overview">Overview</a></li><li><a href="get-zick.html" data-node="get-zick">Get zick</a></li><li><a href="quickstart.html" data-node="quickstart">Quickstart</a></li><li><a href="a-longer-example.html" data-node="a-longer-example">A Longer Example</a></li><li><a href="command-reference.html" data-node="command-reference">Command Reference</a><ol><li><a href="command-reference.html#how-options-are-gathered" data-node="how-options-are-gathered">How Options Are Gathered</a></li><li><a href="command-reference.html#common-options" data-node="common-options">Common Options</a></li><li><a href="command-reference.html#init" data-node="init">init</a></li><li><a href="command-reference.html#add" data-node="add">add</a></li><li><a href="command-reference.html#files" data-node="files">files</a></li><li><a href="command-reference.html#info" data-node="info">info</a></li><li><a href="command-reference.html#dependers" data-node="dependers">dependers</a></li><li><a href="command-reference.html#dependees" data-node="dependees">dependees</a></li><li><a href="command-reference.html#remove" data-node="remove">remove</a></li><li><a href="command-reference.html#list" data-node="list">list</a></li><li><a href="command-reference.html#orphans" data-node="orphans">orphans</a></li><li><a href="command-reference.html#verify" data-node="verify">verify</a></li><li><a href="command-reference.html#help" data-node="help">help</a></li></ol></li><li><a href="architecture.html" data-node="architecture">Architecture</a><ol><li><a href="architecture.html#project-layout" data-node="project-layout">Project Layout</a></li><li><a href="architecture.html#finding-the-project" data-node="finding-the-project">Finding the Project</a></li><li><a href="architecture.html#the-store" data-node="the-store">The Store</a></li><li><a href="architecture.html#sessions-and-locking" data-node="sessions-and-locking">Sessions and Locking</a></li><li><a href="architecture.html#the-package-lifecycle" data-node="the-package-lifecycle">The Package Lifecycle</a><ol><li><a href="architecture.html#install" data-node="install">Install</a></li><li><a href="architecture.html#upgrade" data-node="upgrade">Upgrade</a></li><li><a href="architecture.html#0-verify" data-node="0-verify">Verify</a></li><li><a href="architecture.html#1-remove" data-node="1-remove">Remove</a></li><li><a href="architecture.html#2-orphans" data-node="2-orphans">Orphans</a></li></ol></li><li><a href="architecture.html#pairing-with-the-resolver" data-node="pairing-with-the-resolver">Pairing with the Resolver</a></li></ol></li><li><a href="recipes.html" data-node="recipes">Recipes</a><ol><li><a href="recipes.html#pinning-a-version" data-node="pinning-a-version">Pinning a Version</a></li><li><a href="recipes.html#installing-a-package-with-a-dependency" data-node="installing-a-package-with-a-dependency">Installing a Package with a Dependency</a></li><li><a href="recipes.html#upgrading-a-package" data-node="upgrading-a-package">Upgrading a Package</a></li><li><a href="recipes.html#verifying-an-install-after-a-restore" data-node="verifying-an-install-after-a-restore">Verifying an Install After a Restore</a></li><li><a href="recipes.html#recording-metadata-without-downloading" data-node="recording-metadata-without-downloading">Recording Metadata Without Downloading</a></li><li><a href="recipes.html#declaring-configuration-files" data-node="declaring-configuration-files">Declaring Configuration Files</a></li><li><a href="recipes.html#removing-a-package-and-its-dependents" data-node="removing-a-package-and-its-dependents">Removing a Package and Its Dependents</a></li><li><a href="recipes.html#finding-cruft" data-node="finding-cruft">Finding Cruft</a></li><li><a href="recipes.html#using-zick-in-ci" data-node="using-zick-in-ci">Using zick in CI</a></li><li><a href="recipes.html#installing-what-a-resolver-picked" data-node="installing-what-a-resolver-picked">Installing What a Resolver Picked</a></li></ol></li><li><a href="changelog.html" data-node="changelog">Changelog</a></li><li><a href="contributing.html" data-node="contributing">Contributing</a></li><li><a href="api-reference.html" data-node="api-reference">API Reference</a></li></ol>
+      <ol class="toc"><li><a href="overview.html" data-node="overview">Overview</a><ol><li><a href="overview.html#how-zick-fits-with-the-resolver" data-node="how-zick-fits-with-the-resolver">How zick Fits with the Resolver</a></li><li><a href="overview.html#what-zick-does-not-do" data-node="what-zick-does-not-do">What zick Does Not Do</a></li></ol></li><li><a href="get-zick.html" data-node="get-zick">Get zick</a><ol><li><a href="get-zick.html#prerequisites" data-node="prerequisites">Prerequisites</a></li><li><a href="get-zick.html#building-from-source" data-node="building-from-source">Building from Source</a></li><li><a href="get-zick.html#checking-the-installation" data-node="checking-the-installation">Checking the Installation</a></li></ol></li><li><a href="quickstart.html" data-node="quickstart">Quickstart</a><ol><li><a href="quickstart.html#set-up-a-project" data-node="set-up-a-project">Set Up a Project</a></li><li><a href="quickstart.html#install-a-package" data-node="install-a-package">Install a Package</a></li><li><a href="quickstart.html#look-at-what-you-got" data-node="look-at-what-you-got">Look at What You Got</a></li><li><a href="quickstart.html#verify" data-node="verify">Verify</a></li><li><a href="quickstart.html#remove" data-node="remove">Remove</a></li><li><a href="quickstart.html#next-steps" data-node="next-steps">Next Steps</a></li></ol></li><li><a href="a-longer-example.html" data-node="a-longer-example">A Longer Example</a><ol><li><a href="a-longer-example.html#on-a-dev-machine" data-node="on-a-dev-machine">On a Dev Machine</a><ol><li><a href="a-longer-example.html#initialize" data-node="initialize">Initialize</a></li><li><a href="a-longer-example.html#install-the-dependencies" data-node="install-the-dependencies">Install the Dependencies</a></li><li><a href="a-longer-example.html#install-the-rest-later" data-node="install-the-rest-later">Install the Rest Later</a></li><li><a href="a-longer-example.html#record-what-the-project-depends-on" data-node="record-what-the-project-depends-on">Record What the Project Depends On</a></li><li><a href="a-longer-example.html#verify-before-you-trust-the-tree" data-node="verify-before-you-trust-the-tree">Verify Before You Trust the Tree</a></li><li><a href="a-longer-example.html#remove-a-dependency-cleanly" data-node="remove-a-dependency-cleanly">Remove a Dependency Cleanly</a></li></ol></li><li><a href="a-longer-example.html#in-ci" data-node="in-ci">In CI</a></li><li><a href="a-longer-example.html#using-zick-with-the-resolver" data-node="using-zick-with-the-resolver">Using zick with the Resolver</a></li></ol></li><li><a href="command-reference.html" data-node="command-reference">Command Reference</a><ol><li><a href="command-reference.html#how-options-are-gathered" data-node="how-options-are-gathered">How Options Are Gathered</a></li><li><a href="command-reference.html#common-options" data-node="common-options">Common Options</a></li><li><a href="command-reference.html#init" data-node="init">init</a></li><li><a href="command-reference.html#add" data-node="add">add</a></li><li><a href="command-reference.html#files" data-node="files">files</a></li><li><a href="command-reference.html#info" data-node="info">info</a></li><li><a href="command-reference.html#dependers" data-node="dependers">dependers</a></li><li><a href="command-reference.html#dependees" data-node="dependees">dependees</a></li><li><a href="command-reference.html#0-remove" data-node="0-remove">remove</a></li><li><a href="command-reference.html#list" data-node="list">list</a></li><li><a href="command-reference.html#orphans" data-node="orphans">orphans</a></li><li><a href="command-reference.html#1-verify" data-node="1-verify">verify</a></li><li><a href="command-reference.html#help" data-node="help">help</a></li></ol></li><li><a href="architecture.html" data-node="architecture">Architecture</a><ol><li><a href="architecture.html#project-layout" data-node="project-layout">Project Layout</a></li><li><a href="architecture.html#finding-the-project" data-node="finding-the-project">Finding the Project</a></li><li><a href="architecture.html#the-store" data-node="the-store">The Store</a></li><li><a href="architecture.html#sessions-and-locking" data-node="sessions-and-locking">Sessions and Locking</a></li><li><a href="architecture.html#the-package-lifecycle" data-node="the-package-lifecycle">The Package Lifecycle</a><ol><li><a href="architecture.html#install" data-node="install">Install</a></li><li><a href="architecture.html#upgrade" data-node="upgrade">Upgrade</a></li><li><a href="architecture.html#2-verify" data-node="2-verify">Verify</a></li><li><a href="architecture.html#3-remove" data-node="3-remove">Remove</a></li><li><a href="architecture.html#4-orphans" data-node="4-orphans">Orphans</a></li></ol></li><li><a href="architecture.html#pairing-with-the-resolver" data-node="pairing-with-the-resolver">Pairing with the Resolver</a></li></ol></li><li><a href="recipes.html" data-node="recipes">Recipes</a><ol><li><a href="recipes.html#pinning-a-version" data-node="pinning-a-version">Pinning a Version</a></li><li><a href="recipes.html#installing-a-package-with-a-dependency" data-node="installing-a-package-with-a-dependency">Installing a Package with a Dependency</a></li><li><a href="recipes.html#upgrading-a-package" data-node="upgrading-a-package">Upgrading a Package</a></li><li><a href="recipes.html#verifying-an-install-after-a-restore" data-node="verifying-an-install-after-a-restore">Verifying an Install After a Restore</a></li><li><a href="recipes.html#recording-metadata-without-downloading" data-node="recording-metadata-without-downloading">Recording Metadata Without Downloading</a></li><li><a href="recipes.html#declaring-configuration-files" data-node="declaring-configuration-files">Declaring Configuration Files</a></li><li><a href="recipes.html#removing-a-package-and-its-dependents" data-node="removing-a-package-and-its-dependents">Removing a Package and Its Dependents</a></li><li><a href="recipes.html#finding-cruft" data-node="finding-cruft">Finding Cruft</a></li><li><a href="recipes.html#using-zick-in-ci" data-node="using-zick-in-ci">Using zick in CI</a></li><li><a href="recipes.html#installing-what-a-resolver-picked" data-node="installing-what-a-resolver-picked">Installing What a Resolver Picked</a></li></ol></li><li><a href="changelog.html" data-node="changelog">Changelog</a></li><li><a href="contributing.html" data-node="contributing">Contributing</a></li><li><a href="api-reference.html" data-node="api-reference">API Reference</a></li></ol>
     </aside>
     <main class="codex-section">
-      <p>This page is a worked end-to-end example, including how zick and
-dsolv are used together.  Content lands here in the tutorial bead.</p>
+      <p>The quickstart showed the whole loop.  This page works through a
+realistic scenario end to end: a small project that needs two binary
+dependencies, set up on a dev machine and then reproduced in CI — and,
+at the end, the same project using the dependency resolver to choose
+the versions.</p><p>Imagine a project, <code>wallaby</code>, that needs a prebuilt command-line tool
+(<code>wally</code>) and a data pack (<code>parks-data</code>) to build and run.</p><h1 id="on-a-dev-machine">On a Dev Machine</h1><h2 id="initialize">Initialize</h2><pre><code class="sh">mkdir wallaby
+cd wallaby
+zick init
+</code></pre><h2 id="install-the-dependencies">Install the Dependencies</h2><p>The tool is published as a zip with a <code>bin/wally</code> inside it:</p><pre><code class="sh">zick add -k wally -V 2.1.0 \
+    -l https://downloads.example.com/wally-2.1.0-linux-x64.zip
+</code></pre><p>The data pack is versioned independently and takes a while to
+download, so record it without fetching it for now:</p><pre><code class="sh">zick add -k parks-data -V 2026.07 \
+    -l https://data.example.com/parks-2026.07.zip -W
+</code></pre><p>zick's store now has two packages; <code>wally</code> has its files, and
+<code>parks-data</code> is recorded but not yet installed.</p><h2 id="install-the-rest-later">Install the Rest Later</h2><p>Later, when you have time for the download, complete the install by
+re-adding the package with downloading enabled.  Because the package
+is already recorded at this version, re-adding it counts as an
+in-place replacement, which zick refuses by default — pass
+<code>-i</code>/<code>--enable-allow-inplace</code> to allow it:</p><pre><code class="sh">zick add -k parks-data -V 2026.07 \
+    -l https://data.example.com/parks-2026.07.zip -i
+</code></pre><p>The archive is fetched, unpacked, and the package's files are recorded.
+If a package version ever needs to change, re-add it with the new
+version and zick upgrades it in place, putting changed configuration
+files aside rather than clobbering local edits.</p><h2 id="record-what-the-project-depends-on">Record What the Project Depends On</h2><p>Declare that <code>wally</code> and <code>parks-data</code> belong to the project itself
+by installing a small source package that depends on both:</p><pre><code class="sh">zick add -k wallaby -V 0.1.0 \
+    -l https://downloads.example.com/wallaby-src.zip \
+    -u wally -u parks-data -W
+</code></pre><p>Now the dependency graph is explicit: <code>wally</code> and <code>parks-data</code>
+have a depender, and the project's own package is its source.  That
+makes lifecycle questions answerable:</p><pre><code class="sh">zick dependers -k wally
+zick orphans
+</code></pre><h2 id="verify-before-you-trust-the-tree">Verify Before You Trust the Tree</h2><p>After a checkout, a restore, or any operation that might have touched
+the tree, check the whole install:</p><pre><code class="sh">zick verify -k wally
+zick verify -k parks-data
+</code></pre><p>Each exits 0 when the files on disk match the store.  When one does
+not, it exits 4 and lists exactly which files are wrong and how
+(<code>file-missing</code>, <code>size-discrepancy</code>, <code>checksum-discrepancy</code>, and
+so on) — the difference between &quot;something might be off&quot; and &quot;this
+file at this path changed&quot;.</p><h2 id="remove-a-dependency-cleanly">Remove a Dependency Cleanly</h2><p>When <code>wally</code> is no longer needed, remove it.  Nothing else depends on
+it, so a plain removal works:</p><pre><code class="sh">zick remove -k wally
+</code></pre><p>Removing <code>wallaby</code> itself cascades to the dependencies it declares,
+so a full teardown is one command:</p><pre><code class="sh">zick remove -k wallaby -c
+</code></pre><h1 id="in-ci">In CI</h1><p>The same project in CI is a checkout plus the same commands — which is
+the point: the install is scriptable and repeatable.</p><pre><code class="sh">git clone https://github.com/you/wallaby.git
+cd wallaby
+
+zick init
+zick add -k wally -V 2.1.0 \
+    -l https://downloads.example.com/wally-2.1.0-linux-x64.zip
+zick add -k parks-data -V 2026.07 \
+    -l https://data.example.com/parks-2026.07.zip
+zick add -k wallaby -V 0.1.0 \
+    -l https://downloads.example.com/wallaby-src.zip \
+    -u wally -u parks-data -W
+zick verify -k wally
+zick verify -k parks-data
+</code></pre><p>Because <code>verify</code> checks the on-disk files against recorded checksums,
+this step fails the build when a download is corrupt, a file went
+missing, or the environment drifted — with a precise report, not a
+mysterious failure later.  Because the store lives in the project
+(check it into git along with the sources if you like), the same
+commands produce the same tree on every machine.</p><h1 id="using-zick-with-the-resolver">Using zick with the Resolver</h1><p>For a larger project the versions are chosen by a dependency resolver
+rather than by hand.  zick pairs with <a href="https://github.com/djha-skin/dsolv">dsolv</a>,
+the generic dependency resolver; the two are independent tools, built
+to pair: dsolv reads the requirements, decides which versions a build
+needs, and hands you the URLs of the artifacts; zick downloads those
+exact archives, installs them, and verifies them.</p><p>Concretely, with a resolver producing the locations:</p><pre><code class="sh"># resolver emits the resolved set, e.g.:
+#   wally      2.1.0  https://downloads.example.com/wally-2.1.0-linux-x64.zip
+#   parks-data 2026.07 https://data.example.com/parks-2026.07.zip
+
+zick init
+zick add -k wally -V 2.1.0 \
+    -l https://downloads.example.com/wally-2.1.0-linux-x64.zip
+zick add -k parks-data -V 2026.07 \
+    -l https://data.example.com/parks-2026.07.zip
+zick verify -k wally
+zick verify -k parks-data
+</code></pre><p>The division of labor keeps each tool small: the resolver has no
+opinion about file layout — it returns locations — and zick has no
+opinion about version selection — it takes the versions it is given.
+Each can be used alone, and together they make a build step that
+resolves, installs, and proves itself intact.</p>
     </main>
   </article>
   <footer>
