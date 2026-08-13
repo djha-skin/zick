@@ -260,7 +260,15 @@ jobs:
           done
           sbcl --dynamic-space-size 4096 --control-stack-size 32 \
                --non-interactive --load scripts/ci-build.lisp
-          test -x "$GITHUB_WORKSPACE/zick.exe"
+          # $GITHUB_WORKSPACE is a Windows-style path (D:\a\zick\zick) that
+          # Git Bash's test builtin cannot resolve, so cd and test relative
+          # paths.  SBCL appends .exe to the saved image name; guard both.
+          cd "$GITHUB_WORKSPACE"
+          ls -la | grep -iE 'zick' || true
+          if [ ! -x zick.exe ] && [ -x zick ]; then
+            mv zick zick.exe
+          fi
+          test -x zick.exe
 
       - name: smoke test
         shell: bash
