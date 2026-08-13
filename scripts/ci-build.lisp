@@ -26,9 +26,19 @@
 ;;; via ~/.roswell/init.lisp; here we load it explicitly so a bare SBCL can
 ;;; find the dependencies too.
 (let ((ocicl-runtime
-        (merge-pathnames ".local/share/ocicl/ocicl-runtime.lisp"
-                         (user-homedir-pathname))))
-  (when (probe-file ocicl-runtime)
+        (or
+         ;; Linux/macOS: ~/.local/share/ocicl/ocicl-runtime.lisp
+         (probe-file
+          (merge-pathnames ".local/share/ocicl/ocicl-runtime.lisp"
+                           (user-homedir-pathname)))
+         ;; Windows: %LOCALAPPDATA%\ocicl\ocicl-runtime.lisp
+         (let ((local-app-data (uiop:getenv "LOCALAPPDATA")))
+           (and local-app-data
+                (probe-file
+                 (merge-pathnames
+                  "ocicl/ocicl-runtime.lisp"
+                  (uiop:parse-native-namestring local-app-data))))))))
+  (when ocicl-runtime
     (load ocicl-runtime)))
 
 (asdf:load-asd (merge-pathnames "com.djhaskin.zick.asd" (uiop:getcwd)))
