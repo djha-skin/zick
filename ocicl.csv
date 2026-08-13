@@ -25,6 +25,7 @@ flexi-streams, ghcr.io/ocicl/flexi-streams@sha256:95005b06a8a95c82780c75ead53810
 form-fiddle, ghcr.io/ocicl/form-fiddle@sha256:58b6cdf3909911b876fb8b240ae4e2cfa274acd93d78e2fc65d1d981a295ce0a, form-fiddle-20260218-a4481cc/form-fiddle.asd
 fset, ghcr.io/ocicl/fset@sha256:06ed3b2b8e490fa5ddf01b23af08a5d0d5febf6633b982eab0f721f4cc3c8c15, fset-20251122-19eadf0/fset.asd
 ironclad, ghcr.io/ocicl/ironclad@sha256:3117e5a26a3e94924074c3548c235a2b733609ed61a2731880ac9e31df55428b, ironclad-20240503-6da010f/ironclad.asd
+ironclad-text, ghcr.io/ocicl/ironclad@sha256:3117e5a26a3e94924074c3548c235a2b733609ed61a2731880ac9e31df55428b, ironclad-20240503-6da010f/ironclad-text.asd
 mmap, ghcr.io/ocicl/mmap@sha256:7ac8a8fa66fb88671c112e085a78eee1a80b26efa6b661b4821976b1e7003dbf, mmap-20260218-d8d4fad/mmap.asd
 mmap-test, ghcr.io/ocicl/mmap@sha256:7ac8a8fa66fb88671c112e085a78eee1a80b26efa6b661b4821976b1e7003dbf, mmap-20260218-d8d4fad/mmap-test.asd
 nibbles, ghcr.io/ocicl/nibbles@sha256:118f2066215283965457215ac47b056f8b903d895d17bcd67920da14ee23c679, nibbles-20250402-95c2a9a/nibbles.asd

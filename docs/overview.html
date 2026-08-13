@@ -71,8 +71,9 @@ requirements, and tells you the exact set of versions a build needs —
 returning the URLs of the files to download.</li><li>zick takes those URLs, downloads the archives, unpacks them into
 the project tree, tracks the files it owns, and verifies them.</li></ul><p>dsolv answers &quot;what do we need?&quot;; zick answers &quot;make it so, and
 check.&quot;  This manual covers zick on its own; the pairing is shown in
-the <a href="a-longer-example.html">longer example</a> and the
-<a href="architecture.html">architecture</a> pages.</p><h1 id="what-zick-does-not-do">What zick Does Not Do</h1><p>zick is deliberately small:</p><ul><li>It does not resolve versions.  You give <code>zick add</code> a name, a
+the <a href="a-longer-example.html">longer example</a> — where a
+script pipes dsolv's install-order JSON straight into <code>zick add</code> —
+and the <a href="architecture.html">architecture</a> pages.</p><h1 id="what-zick-does-not-do">What zick Does Not Do</h1><p>zick is deliberately small:</p><ul><li>It does not resolve versions.  You give <code>zick add</code> a name, a
 version, and a URL; zick installs exactly that.  Version selection is
 the resolver's job, not zick's.</li><li>It does not build or compile anything.  Archives are unpacked as
 they are; publishing is just uploading a zip.</li><li>It does not manage your whole machine.  zick installs into one

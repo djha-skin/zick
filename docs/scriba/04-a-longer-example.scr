@@ -173,21 +173,63 @@ to pair: dsolv reads the requirements, decides which versions a build
 needs, and hands you the URLs of the artifacts; zick downloads those
 exact archives, installs them, and verifies them.
 
-Concretely, with a resolver producing the locations:
+The @link[uri="https://djha-skin.github.io/dsolv/a-longer-example.html"](dsolv manual) works through a concrete repository of five zip artifacts with
+the dependency tree @c(a -> b), @c(b -> c), @c(b -> d), @c(d -> e), and
+@c(c -> e) — artifacts @c(a@2.1.0), @c(b@2.3.0), @c(c@3.5.0),
+@c(d@0.5.0), and @c(e@1.8.0) served at
+@c(https://example.com/repo/<name>-<version>.zip).  Assume that very
+scenario: the repository index is at
+@c(https://example.com/repo/index.dsrepo) and the project needs
+@c(a).  dsolv resolves the whole tree and, with @c(--list-strat lazy),
+prints it in install order — dependencies before the packages that
+need them:
 
 @begin[lang=sh](code)
-# resolver emits the resolved set, e.g.:
-#   wally      2.1.0  https://downloads.example.com/wally-2.1.0-linux-x64.zip
-#   parks-data 2026.07 https://data.example.com/parks-2026.07.zip
+dsolv resolve-locations \
+    --requirement a \
+    --repository https://example.com/repo/index.dsrepo \
+    --list-strat lazy \
+    --output-format json
+@end(code)
+
+@begin[lang=nrdl](code)
+{"result":"successful","packages":[
+{"id":"e","version":"1.8.0","location":"https://example.com/repo/e-1.8.0.zip","requirements":[]},
+{"id":"d","version":"0.5.0","location":"https://example.com/repo/d-0.5.0.zip","requirements":[...]},
+{"id":"c","version":"3.5.0","location":"https://example.com/repo/c-3.5.0.zip","requirements":[...]},
+{"id":"b","version":"2.3.0","location":"https://example.com/repo/b-2.3.0.zip","requirements":[...]},
+{"id":"a","version":"2.1.0","location":"https://example.com/repo/a-2.1.0.zip","requirements":[...]}]}
+@end(code)
+
+Each package carries its @c(id), @c(version), and @c(location) —
+exactly the three arguments @c(zick add) takes.  A short script pipes
+the JSON through @c(jq) and installs each package in order.  Because
+the resolver listed dependencies first, every @c(zick add) finds the
+packages it needs already present:
+
+@begin[lang=sh](code)
+#!/bin/sh
+set -eu
 
 zick init
-zick add -k wally -V 2.1.0 \
-    -l https://downloads.example.com/wally-2.1.0-linux-x64.zip
-zick add -k parks-data -V 2026.07 \
-    -l https://data.example.com/parks-2026.07.zip
-zick verify -k wally
-zick verify -k parks-data
+
+dsolv resolve-locations \
+    --requirement a \
+    --repository https://example.com/repo/index.dsrepo \
+    --list-strat lazy \
+    --output-format json \
+| jq -r '.packages[] | [.id, .version, .location] | @tsv' \
+| while IFS=$'\t' read -r id version location; do
+    zick add -k "$id" -V "$version" -l "$location"
+done
+
+zick verify -k a
 @end(code)
+
+That stanza — a resolver deciding @i(what) and @i(in what order), zick
+installing and verifying — is a complete CI dependency step: the same
+commands produce the same tree on every machine, and @c(zick verify)
+proves the resolved artifact tree is intact.
 
 The division of labor keeps each tool small: the resolver has no
 opinion about file layout — it returns locations — and zick has no

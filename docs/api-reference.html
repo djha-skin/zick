@@ -236,7 +236,10 @@ search.
 
 <h2 id="all-parents"><code>all-parents</code></h2>
 <div class="codex-doc-node codex-operator codex-function"><code class="codex-name">all-parents</code><code class="codex-lambda-list">(path)</code><div class="codex-docstring">Return PATH followed by each of its parent directories, stopping
-   once a directory equals its own parent (the filesystem root).</div></div>
+   once a directory equals its own parent (the filesystem root).
+   Relative PATHs are absolutized against the current directory first:
+   uiop's parent computation on relative pathnames grows an unbounded
+   (:RELATIVE :BACK ...) chain instead of reaching the root.</div></div>
 
 <h2 id="find-marking-file"><code>find-marking-file</code></h2>
 <div class="codex-doc-node codex-operator codex-function"><code class="codex-name">find-marking-file</code><code class="codex-lambda-list">(start match)</code><div class="codex-docstring">Find the first entry named MATCH at or above START, returning its

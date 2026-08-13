@@ -185,6 +185,11 @@ zick verify -k myapp
 zick takes the versions it is given and has no opinion about version
 selection, so the two tools compose cleanly in a build.
 
+For the full picture — the resolver outputting its install-ordered
+packages as JSON and a script piping them into @c(zick add) with
+@c(jq) — see "Using zick with the Resolver" in the
+@link[uri="a-longer-example.html"](longer example).
+
 @end(section)
 
 @end(section)

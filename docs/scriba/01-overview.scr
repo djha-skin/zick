@@ -53,8 +53,9 @@ the project tree, tracks the files it owns, and verifies them.)
 
 dsolv answers "what do we need?"; zick answers "make it so, and
 check."  This manual covers zick on its own; the pairing is shown in
-the @link[uri="a-longer-example.html"](longer example) and the
-@link[uri="architecture.html"](architecture) pages.
+the @link[uri="a-longer-example.html"](longer example) — where a
+script pipes dsolv's install-order JSON straight into @c(zick add) —
+and the @link[uri="architecture.html"](architecture) pages.
 
 @end(section)
 

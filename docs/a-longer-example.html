@@ -116,18 +116,50 @@ rather than by hand.  zick pairs with <a href="https://github.com/djha-skin/dsol
 the generic dependency resolver; the two are independent tools, built
 to pair: dsolv reads the requirements, decides which versions a build
 needs, and hands you the URLs of the artifacts; zick downloads those
-exact archives, installs them, and verifies them.</p><p>Concretely, with a resolver producing the locations:</p><pre><code class="sh"># resolver emits the resolved set, e.g.:
-#   wally      2.1.0  https://downloads.example.com/wally-2.1.0-linux-x64.zip
-#   parks-data 2026.07 https://data.example.com/parks-2026.07.zip
+exact archives, installs them, and verifies them.</p><p>The <a href="https://djha-skin.github.io/dsolv/a-longer-example.html">dsolv manual</a> works through a concrete repository of five zip artifacts with
+the dependency tree <code>a -&gt; b</code>, <code>b -&gt; c</code>, <code>b -&gt; d</code>, <code>d -&gt; e</code>, and
+<code>c -&gt; e</code> — artifacts <code>a@2.1.0</code>, <code>b@2.3.0</code>, <code>c@3.5.0</code>,
+<code>d@0.5.0</code>, and <code>e@1.8.0</code> served at
+<code>https://example.com/repo/&lt;name&gt;-&lt;version&gt;.zip</code>.  Assume that very
+scenario: the repository index is at
+<code>https://example.com/repo/index.dsrepo</code> and the project needs
+<code>a</code>.  dsolv resolves the whole tree and, with <code>--list-strat lazy</code>,
+prints it in install order — dependencies before the packages that
+need them:</p><pre><code class="sh">dsolv resolve-locations \
+    --requirement a \
+    --repository https://example.com/repo/index.dsrepo \
+    --list-strat lazy \
+    --output-format json
+</code></pre><pre><code class="nrdl">{&quot;result&quot;:&quot;successful&quot;,&quot;packages&quot;:[
+{&quot;id&quot;:&quot;e&quot;,&quot;version&quot;:&quot;1.8.0&quot;,&quot;location&quot;:&quot;https://example.com/repo/e-1.8.0.zip&quot;,&quot;requirements&quot;:[]},
+{&quot;id&quot;:&quot;d&quot;,&quot;version&quot;:&quot;0.5.0&quot;,&quot;location&quot;:&quot;https://example.com/repo/d-0.5.0.zip&quot;,&quot;requirements&quot;:[...]},
+{&quot;id&quot;:&quot;c&quot;,&quot;version&quot;:&quot;3.5.0&quot;,&quot;location&quot;:&quot;https://example.com/repo/c-3.5.0.zip&quot;,&quot;requirements&quot;:[...]},
+{&quot;id&quot;:&quot;b&quot;,&quot;version&quot;:&quot;2.3.0&quot;,&quot;location&quot;:&quot;https://example.com/repo/b-2.3.0.zip&quot;,&quot;requirements&quot;:[...]},
+{&quot;id&quot;:&quot;a&quot;,&quot;version&quot;:&quot;2.1.0&quot;,&quot;location&quot;:&quot;https://example.com/repo/a-2.1.0.zip&quot;,&quot;requirements&quot;:[...]}]}
+</code></pre><p>Each package carries its <code>id</code>, <code>version</code>, and <code>location</code> —
+exactly the three arguments <code>zick add</code> takes.  A short script pipes
+the JSON through <code>jq</code> and installs each package in order.  Because
+the resolver listed dependencies first, every <code>zick add</code> finds the
+packages it needs already present:</p><pre><code class="sh">#!/bin/sh
+set -eu
 
 zick init
-zick add -k wally -V 2.1.0 \
-    -l https://downloads.example.com/wally-2.1.0-linux-x64.zip
-zick add -k parks-data -V 2026.07 \
-    -l https://data.example.com/parks-2026.07.zip
-zick verify -k wally
-zick verify -k parks-data
-</code></pre><p>The division of labor keeps each tool small: the resolver has no
+
+dsolv resolve-locations \
+    --requirement a \
+    --repository https://example.com/repo/index.dsrepo \
+    --list-strat lazy \
+    --output-format json \
+| jq -r '.packages[] | [.id, .version, .location] | @tsv' \
+| while IFS=$'\t' read -r id version location; do
+    zick add -k &quot;$id&quot; -V &quot;$version&quot; -l &quot;$location&quot;
+done
+
+zick verify -k a
+</code></pre><p>That stanza — a resolver deciding <i>what</i> and <i>in what order</i>, zick
+installing and verifying — is a complete CI dependency step: the same
+commands produce the same tree on every machine, and <code>zick verify</code>
+proves the resolved artifact tree is intact.</p><p>The division of labor keeps each tool small: the resolver has no
 opinion about file layout — it returns locations — and zick has no
 opinion about version selection — it takes the versions it is given.
 Each can be used alone, and together they make a build step that

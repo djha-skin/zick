@@ -108,7 +108,10 @@ zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
 zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
 zick verify -k myapp
 </code></pre><p>zick takes the versions it is given and has no opinion about version
-selection, so the two tools compose cleanly in a build.</p>
+selection, so the two tools compose cleanly in a build.</p><p>For the full picture — the resolver outputting its install-ordered
+packages as JSON and a script piping them into <code>zick add</code> with
+<code>jq</code> — see &quot;Using zick with the Resolver&quot; in the
+<a href="a-longer-example.html">longer example</a>.</p>
     </main>
   </article>
   <footer>
