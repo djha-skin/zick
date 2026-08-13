@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- NRDL output: command results that carry a collection (files,
+  dependers, dependees, removed packages, packages, orphans,
+  verification results) now emit FSet seqs, so an empty collection
+  renders as `[]` instead of `false` (NRDL maps nil, the empty CL
+  list, to false).  Notably, `zick orphans` on a store with no
+  orphans previously printed `orphaned-packages false`.
 - `zick add -m` JSON metadata: NRDL reads JSON object keys back as
   case-preserved keywords (e.g. `:|zick|`), which the metadata
   keywordization skipped, so config-file/ghost-file classification

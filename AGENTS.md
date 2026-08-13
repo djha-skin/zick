@@ -72,6 +72,23 @@ When porting Clojure/zic artifacts to Common Lisp/dsolv:
 - Use CLIFF `data-slurp`/`base-slurp`; do not reimplement them.
 - Use Parachute for tests.
 
+### NRDL serialization: nil means false, not empty list
+
+NRDL is behaving correctly: an **FSet seq** renders as `[...]` (an empty
+FSet seq as `[]`, even nested inside a hash table), while `nil` renders
+as `false`. Because the empty CL list *is* `nil`, passing a CL list to
+NRDL output loses the distinction between "empty list" and "false".
+
+- When a command emits a collection in its result map, build it with
+  `fset:convert 'fset:seq` (see `plists-to-fset-seq` in `src/main.lisp`)
+  so an empty collection renders as `[]`, never `false`.
+- Reserve passing `nil` for values that genuinely mean false.
+- NRDL does not accept vectors at all (`type-error`); use FSet seqs.
+- `zick list` deliberately suppresses output on an empty database
+  (per its acceptance criterion, "prints nothing") rather than
+  emitting `packages []`; `zick orphans` renders `[]`. Both are
+  intended; do not "fix" either.
+
 ## Build and Test
 
 Run Lisp through swanky. Build the executable with:

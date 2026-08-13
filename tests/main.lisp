@@ -174,11 +174,19 @@
   :parent nil
   "zick orphans lists the installed packages that nothing depends
    on; installing a package that depends on another and then removing
-   the depender leaves the dependency reported."
+   the depender leaves the dependency reported.  An empty set of
+   orphans renders as `[]`, not `false` (NRDL maps nil to false)."
   (multiple-value-bind (root proj) (temp-project "zick-cli-orphans")
     (unwind-protect
         (progn
           (is = 0 (cli proj "init"))
+          ;; No packages at all: the orphan list is empty, and must
+          ;; render as `[]` rather than `false`.
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "orphans")
+            (is = 0 exit)
+            (true (search "orphaned-packages [" out))
+            (true (null (search "orphaned-packages false" out))))
           ;; A standalone install is orphaned (nothing depends on it).
           (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0"
                        "-l" "https://example.com/a.zip" "-W"))

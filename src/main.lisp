@@ -96,13 +96,23 @@
           collect (cons k v))
     :test 'equal))
 
+(defun plists-to-fset-seq (plists)
+  "Convert PLISTS to an FSet seq of hash tables for NRDL
+   serialization.
+
+   An FSet seq is used rather than a CL list because NRDL renders an
+   empty collection as `[]` but maps nil (the empty CL list) to
+   `false`; a non-empty CL list would also work, but the empty case
+   must be an FSet seq."
+  (fset:convert 'fset:seq (mapcar #'plist-to-hash plists)))
+
 (defun verification-to-data (results)
   "Convert the verification alist (RESULT-KEY . INFOS) to a hash table
-   mapping each RESULT-KEY to an array of file hash tables."
+   mapping each RESULT-KEY to an FSet seq of file hash tables."
   (let ((ht (make-hash-table :test 'equal)))
     (loop for (result . infos) in results
           do (setf (gethash result ht)
-                   (mapcar #'plist-to-hash infos)))
+                   (plists-to-fset-seq infos)))
     ht))
 
 (defun keywordize-fset-map (fmap)
@@ -221,7 +231,7 @@
         (alexandria:alist-hash-table
           `((:status . :successful)
             (:result . :package-found)
-            (:package-files . ,(mapcar #'plist-to-hash files)))))))
+            (:package-files . ,(plists-to-fset-seq files)))))))
 
 (defun info-command (options)
   "Show information about a package."
@@ -253,7 +263,7 @@
         (alexandria:alist-hash-table
           `((:status . :successful)
             (:result . :package-found)
-            (:package-dependers . ,(mapcar #'plist-to-hash dependers)))))))
+            (:package-dependers . ,(plists-to-fset-seq dependers)))))))
 
 (defun dependees-command (options)
   "List the packages a package depends on."
@@ -269,7 +279,7 @@
         (alexandria:alist-hash-table
           `((:status . :successful)
             (:result . :package-found)
-            (:package-dependees . ,(mapcar #'plist-to-hash dependees)))))))
+            (:package-dependees . ,(plists-to-fset-seq dependees)))))))
 
 (defun verify-command (options)
   "Verify the files of a package on disk.
@@ -311,7 +321,7 @@
           `((:status . :successful)
             (:result . :package-found)
             (:dry-run . ,(getf opts :dry-run))
-            (:removed-packages . ,(mapcar #'plist-to-hash removed)))))))
+            (:removed-packages . ,(plists-to-fset-seq removed)))))))
 
 (defun init-command (options)
   "Initialize the database in the start directory.
@@ -342,7 +352,7 @@
         (alexandria:alist-hash-table
           `((:status . :successful)
             (:result . :successful)
-            (:packages . ,(mapcar #'plist-to-hash packages)))))))
+            (:packages . ,(plists-to-fset-seq packages)))))))
 
 (defun orphans-command (options)
   "List the orphaned packages: the installed packages that nothing
@@ -352,7 +362,7 @@
     (alexandria:alist-hash-table
       `((:status . :successful)
         (:result . :successful)
-        (:orphaned-packages . ,(mapcar #'plist-to-hash orphans))))))
+        (:orphaned-packages . ,(plists-to-fset-seq orphans))))))
 
 ;;; Setup
 
