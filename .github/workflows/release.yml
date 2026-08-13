@@ -286,13 +286,37 @@ jobs:
         run: |
           # SBCL's Windows executable needs its runtime DLLs next to it.
           # Scoop installs SBCL to ~/scoop/apps/sbcl/current with the DLLs
-          # beside sbcl.exe; fall back to searching the machine for
-          # libsbcl.dll in case the layout ever differs.
+          # beside sbcl.exe.  Diagnostics first: the pwsh install step and
+          # this bash step may disagree on the home dir (Git Bash $HOME vs
+          # pwsh $HOME), so print both and list what Scoop actually created
+          # before hunting for the DLL.
           cd "$GITHUB_WORKSPACE"
-          SBCL_DIR="$HOME/scoop/apps/sbcl/current"
-          if [ ! -f "$SBCL_DIR/libsbcl.dll" ]; then
-            SBCL_DIR="$(dirname "$(find /c/Program\ Files /c/ProgramData/chocolatey \
+          echo "HOME=$HOME"
+          echo "USERPROFILE=$USERPROFILE"
+          ls -la "$HOME/scoop/apps/sbcl/" 2>/dev/null || true
+          ls -la "$USERPROFILE/scoop/apps/sbcl/" 2>/dev/null || true
+
+          # Try the deterministic Scoop layout under either home form.
+          SBCL_DIR=
+          for base in "$HOME/scoop/apps/sbcl/current" \
+                      "$USERPROFILE/scoop/apps/sbcl/current"; do
+            if [ -n "$base" ] && [ -f "$base/libsbcl.dll" ]; then
+              SBCL_DIR="$base"
+              break
+            fi
+          done
+          if [ -z "$SBCL_DIR" ]; then
+            # No current link (or a different layout): search Scoop only.
+            # A machine-wide find is far too slow on the runner.
+            SBCL_DIR="$(dirname "$(find "$HOME/scoop" "$USERPROFILE/scoop" \
                 -iname 'libsbcl.dll' 2>/dev/null | head -1)")"
+          fi
+          if [ -z "$SBCL_DIR" ] || [ ! -f "$SBCL_DIR/libsbcl.dll" ]; then
+            echo "could not locate libsbcl.dll" >&2
+            echo "HOME=$HOME USERPROFILE=$USERPROFILE" >&2
+            find "$HOME/scoop" "$USERPROFILE/scoop" -maxdepth 5 \
+              -iname 'libsbcl.dll' 2>/dev/null | head -20 >&2
+            exit 1
           fi
           echo "SBCL_DIR=$SBCL_DIR"
           cp "$SBCL_DIR"/libsbcl.dll .
