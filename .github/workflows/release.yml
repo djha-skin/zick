@@ -216,8 +216,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Scoop instead of Chocolatey: not preinstalled on the runner, but the
+      # one-line bootstrap is cheap, and Scoop extracts the official SBCL MSI
+      # into a deterministic per-user dir (~/scoop/apps/sbcl/current) with
+      # the runtime DLLs beside sbcl.exe — no MSI-installer path hunting.
+      # It also matches how we distribute zick itself (Scoop manifest).
       - name: install sbcl
-        run: choco install sbcl --yes --no-progress
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          Invoke-RestMethod -UseBasicParsing get.scoop.sh | Invoke-Expression
+          scoop install sbcl
 
       - name: install ocicl
         shell: bash
@@ -248,6 +257,8 @@ jobs:
       - name: build zick
         shell: bash
         run: |
+          # Scoop shims (sbcl) live in ~/scoop/shims.
+          export PATH="$HOME/scoop/shims:$PATH"
           ocicl setup
           # Retry the install: ghcr.io downloads are occasionally flaky
           # (transient TLS/network errors) and a full retry is cheap.
@@ -274,13 +285,15 @@ jobs:
         shell: bash
         run: |
           # SBCL's Windows executable needs its runtime DLLs next to it.
-          # `which sbcl` resolves to a Chocolatey shim (bin/sbcl); the real
-          # install (the official SBCL MSI) lives under "Program Files\sbcl".
-          # Find libsbcl.dll itself to get the install dir.
+          # Scoop installs SBCL to ~/scoop/apps/sbcl/current with the DLLs
+          # beside sbcl.exe; fall back to searching the machine for
+          # libsbcl.dll in case the layout ever differs.
           cd "$GITHUB_WORKSPACE"
-          LIBSBCL="$(find /c/Program\ Files /c/ProgramData/chocolatey \
-              -iname 'libsbcl.dll' 2>/dev/null | head -1)"
-          SBCL_DIR="$(dirname "$LIBSBCL")"
+          SBCL_DIR="$HOME/scoop/apps/sbcl/current"
+          if [ ! -f "$SBCL_DIR/libsbcl.dll" ]; then
+            SBCL_DIR="$(dirname "$(find /c/Program\ Files /c/ProgramData/chocolatey \
+                -iname 'libsbcl.dll' 2>/dev/null | head -1)")"
+          fi
           echo "SBCL_DIR=$SBCL_DIR"
           cp "$SBCL_DIR"/libsbcl.dll .
           cp "$SBCL_DIR"/libgcc_s_seh-1.dll . 2>/dev/null || true
