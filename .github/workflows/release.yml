@@ -332,6 +332,13 @@ jobs:
     needs: [linux-matrix, macos, windows]
     runs-on: ubuntu-latest
     steps:
+      # gh release create resolves the tag through git, so the repo must
+      # be checked out (fetch-depth 0 so the tag is present for both the
+      # tag-push and workflow_dispatch paths).
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
