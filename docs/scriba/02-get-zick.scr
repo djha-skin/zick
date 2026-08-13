@@ -20,8 +20,7 @@ runs on any modern glibc distribution, plus native packages for the
 distros we build on: @c(.deb) for Debian stable and Ubuntu 24.04/26.04,
 and @c(.rpm) for Fedora 43/44.  Source packages (@c(.dsc), @c(.src.rpm))
 ride along for distros we do not package, such as RHEL.)
-@item(@b(macOS) — @c(zick-macos-x64.tar.gz) for Intel and
-@c(zick-macos-arm64.tar.gz) for Apple Silicon.)
+@item(@b(macOS) — @c(zick-macos-arm64.tar.gz) for Apple Silicon.)
 @item(@b(Windows) — @c(zick-windows-x64.zip), a @c(zick.exe) with the
 SBCL runtime DLLs bundled beside it.)
 @end(list)
@@ -55,8 +54,8 @@ sudo dnf install ./zick-0.1.0-1.x86_64.rpm
 @begin(section)
 @title(Installing on macOS)
 
-Download the tarball for your architecture, extract it, and move the
-binary onto your @c(PATH):
+Download the tarball, extract it, and move the binary onto your
+@c(PATH):
 
 @begin[lang=sh](code)
 curl -fSsL -o zick.tar.gz \\
@@ -65,10 +64,10 @@ tar xzf zick.tar.gz
 install -m755 zick /usr/local/bin/zick
 @end(code)
 
-(Substitute @c(zick-macos-x64.tar.gz) on Intel Macs.)  The binaries are
-unsigned, so Gatekeeper will block the first launch: right-click the
-binary in Finder and choose @b(Open), or run
-@c(xattr -dr com.apple.quarantine /usr/local/bin/zick) once.
+(The build targets Apple Silicon only; Intel Macs must build from
+source.)  The binaries are unsigned, so Gatekeeper will block the
+first launch: right-click the binary in Finder and choose @b(Open), or
+run @c(xattr -dr com.apple.quarantine /usr/local/bin/zick) once.
 
 @end(section)
 

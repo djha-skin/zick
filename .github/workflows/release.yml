@@ -149,6 +149,8 @@ jobs:
             zick_*_amd64.deb
             zick-linux-x86_64.tar.gz
 
+  # macOS builds for Apple Silicon only: the x64 (Intel) leg was dropped
+  # because it is not a common platform for this tool.
   macos:
     name: macos (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -156,7 +158,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { arch: x64,   runner: macos-13 }
           - { arch: arm64, runner: macos-14 }
     steps:
       - uses: actions/checkout@v4
@@ -331,4 +332,4 @@ jobs:
           gh release create "$TAG" \
             artifacts/* \
             --title "zick ${VERSION}" \
-            --notes "zick ${VERSION} — see the manual (https://djha-skin.github.io/zick/) for install instructions. This release ships prebuilt binaries for Linux (x86_64), macOS (x86_64 + arm64), and Windows (x64), plus binary and source packages for Debian/Ubuntu (deb) and Fedora/RHEL (rpm)."
+            --notes "zick ${VERSION} — see the manual (https://djha-skin.github.io/zick/) for install instructions. This release ships prebuilt binaries for Linux (x86_64), macOS (arm64), and Windows (x64), plus binary and source packages for Debian/Ubuntu (deb) and Fedora/RHEL (rpm)."

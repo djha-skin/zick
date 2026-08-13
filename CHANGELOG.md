@@ -113,3 +113,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (COPR/PPA/AUR/Homebrew channels planned for later releases).
 
 ## [Unreleased]
+
+### Changed
+
+- The macOS release build is now Apple Silicon (arm64) only; the Intel
+  (x64) leg was dropped as an uncommon platform.  Intel Macs must
+  build from source.
