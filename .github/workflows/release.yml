@@ -1,0 +1,236 @@
+# release.yml — build zick for the per-distro matrix and publish a GitHub
+# Release when a v* tag is pushed.
+#
+# Linux legs run inside the prebuilt per-distro build images from the
+# sbcl-ocicl-fpm repo (ghcr.io/djha-skin/sbcl-ocicl-fpm) which carry SBCL,
+# ocicl, Roswell, FPM, and the distro packaging tools.  Each Linux leg emits
+# the SOURCE package for its distro: .src.rpm (fedora) or the Debian source
+# package (debian/ubuntu).  Fedora/Ubuntu binaries are built by COPR and the
+# PPA from those sources; the Debian source deb and the RHEL source rpm ride
+# on the Release itself.  macOS and Windows legs emit the platform binaries.
+#
+# The release job assembles everything with `gh release create`.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  linux-matrix:
+    name: linux (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: debian-stable, image: debian13,   pkg: deb }
+          - { name: ubuntu-2404,   image: ubuntu2404, pkg: deb }
+          - { name: ubuntu-2604,   image: ubuntu2604, pkg: deb }
+          - { name: fedora-43,     image: fedora43,   pkg: rpm }
+          - { name: fedora-44,     image: fedora44,   pkg: rpm }
+    container:
+      image: ghcr.io/djha-skin/sbcl-ocicl-fpm:${{ matrix.image }}-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ocicl setup and install deps
+        run: |
+          ocicl setup
+          ocicl install
+
+      - name: clone sibling systems
+        run: |
+          mkdir -p ~/common-lisp
+          for r in cliff nrdl svers; do
+            git clone --quiet --depth 1 "https://github.com/djha-skin/$r.git" ~/common-lisp/$r
+          done
+
+      - name: build zick
+        run: |
+          sbcl --dynamic-space-size 4096 --control-stack-size 32 \
+               --non-interactive --load scripts/ci-build.lisp
+          test -x "$GITHUB_WORKSPACE/zick"
+
+      - name: smoke test
+        run: |
+          TMPD=$(mktemp -d)
+          cd "$TMPD"
+          "$GITHUB_WORKSPACE/zick" init
+          "$GITHUB_WORKSPACE/zick" list
+
+      - name: make source tarballs
+        run: bash scripts/make-source-tarball.sh "${GITHUB_REF_NAME#v}"
+
+      - name: produce source package (deb)
+        if: matrix.pkg == 'deb'
+        run: |
+          set -eux
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p /tmp/debsrc
+          tar xzf "zick_${VERSION}.orig.tar.gz" -C /tmp/debsrc
+          cp -r packaging/debian "/tmp/debsrc/zick-${VERSION}/debian"
+          cd "/tmp/debsrc/zick-${VERSION}"
+          dpkg-buildpackage -S --no-sign
+          cp ../zick_${VERSION}* "$GITHUB_WORKSPACE/"
+
+      - name: produce source package (rpm)
+        if: matrix.pkg == 'rpm'
+        run: |
+          set -eux
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p ~/rpmbuild/SOURCES ~/rpmbuild/SRPMS
+          cp "zick-${VERSION}-src.tar.gz" ~/rpmbuild/SOURCES/
+          rpmbuild -bs packaging/zick.spec
+          cp ~/rpmbuild/SRPMS/*.src.rpm "$GITHUB_WORKSPACE/"
+
+      - name: upload source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.name }}
+          path: |
+            zick-*.src.rpm
+            zick_*.dsc
+            zick_*.debian.tar.xz
+            zick_*.orig.tar.gz
+
+  macos:
+    name: macos (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x64,   runner: macos-13 }
+          - { arch: arm64, runner: macos-14 }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install toolchain
+        run: brew install sbcl ocicl
+
+      - name: clone sibling systems
+        run: |
+          mkdir -p ~/common-lisp
+          for r in cliff nrdl svers; do
+            git clone --quiet --depth 1 "https://github.com/djha-skin/$r.git" ~/common-lisp/$r
+          done
+
+      - name: build zick
+        run: |
+          ocicl setup
+          ocicl install
+          sbcl --dynamic-space-size 4096 --control-stack-size 32 \
+               --non-interactive --load scripts/ci-build.lisp
+          test -x "$GITHUB_WORKSPACE/zick"
+
+      - name: smoke test
+        run: |
+          TMPD=$(mktemp -d)
+          cd "$TMPD"
+          "$GITHUB_WORKSPACE/zick" init
+          "$GITHUB_WORKSPACE/zick" list
+
+      - name: package
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          tar czf zick-macos-${{ matrix.arch }}.tar.gz zick
+
+      - name: upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: zick-macos-${{ matrix.arch }}.tar.gz
+
+  windows:
+    name: windows (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install sbcl
+        run: choco install sbcl --yes --no-progress
+
+      - name: install ocicl
+        shell: bash
+        run: |
+          curl -fSsL -o /tmp/ocicl.zip \
+            https://github.com/ocicl/ocicl/releases/download/v2.17.0/ocicl-2.17.0-windows-amd64.zip
+          mkdir -p /tmp/ocicl-bin
+          cd /tmp/ocicl-bin
+          unzip -oq /tmp/ocicl.zip
+          echo "/tmp/ocicl-bin" >> "$GITHUB_PATH"
+
+      - name: clone sibling systems
+        shell: bash
+        run: |
+          mkdir -p ~/common-lisp
+          for r in cliff nrdl svers; do
+            git clone --quiet --depth 1 "https://github.com/djha-skin/$r.git" ~/common-lisp/$r
+          done
+
+      - name: build zick
+        shell: bash
+        run: |
+          ocicl setup
+          ocicl install
+          sbcl --dynamic-space-size 4096 --control-stack-size 32 \
+               --non-interactive --load scripts/ci-build.lisp
+          test -x "$GITHUB_WORKSPACE/zick.exe"
+
+      - name: smoke test
+        shell: bash
+        run: |
+          TMPD=$(mktemp -d)
+          cd "$TMPD"
+          "$GITHUB_WORKSPACE/zick.exe" init
+          "$GITHUB_WORKSPACE/zick.exe" list
+
+      - name: bundle runtime DLLs
+        shell: bash
+        run: |
+          # SBCL's Windows executable needs its runtime DLLs next to it.
+          SBCL_BIN="$(dirname "$(which sbcl)")"
+          cd "$GITHUB_WORKSPACE"
+          cp "$SBCL_BIN"/libsbcl.dll .
+          cp "$SBCL_BIN"/libgcc_s_seh-1.dll . 2>/dev/null || true
+          cp "$SBCL_BIN"/libwinpthread-1.dll . 2>/dev/null || true
+
+      - name: package
+        shell: bash
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          zip zick-windows-x64.zip zick.exe libsbcl.dll libgcc_s_seh-1.dll libwinpthread-1.dll
+
+      - name: upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: zick-windows-x64.zip
+
+  release:
+    name: assemble release
+    needs: [linux-matrix, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          gh release create "$TAG" \
+            artifacts/* \
+            --title "zick ${VERSION}" \
+            --notes "zick ${VERSION} — see the manual (https://djha-skin.github.io/zick/) for install instructions.
+
+Linux: Fedora via COPR, Ubuntu via PPA, Debian source package and RHEL source RPM attached here."

@@ -1,0 +1,5 @@
+zick (0.1.0-1) unstable; urgency=medium
+
+  * Initial release: zip-based package manager for Common Lisp.
+
+ -- Daniel Jay Haskin <djhaskin987@gmail.com>  Wed, 13 Aug 2026 00:00:00 +0000

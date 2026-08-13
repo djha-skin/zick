@@ -1,0 +1,17 @@
+Source: zick
+Section: devel
+Priority: optional
+Maintainer: Daniel Jay Haskin <djhaskin987@gmail.com>
+Build-Depends: debhelper-compat (= 13), sbcl, git, curl
+Standards-Version: 4.6.2
+Homepage: https://github.com/djha-skin/zick
+
+Package: zick
+Architecture: amd64
+Depends: ${misc:Depends}
+Description: A zip-based package manager for Common Lisp systems
+ zick is a package manager for Common Lisp that resolves and installs
+ systems from zip archives. It tracks installed packages, their files,
+ and their dependencies in a local database, mirroring the behavior of
+ the zic package manager. zick pairs well with dsolv, the Common Lisp
+ resolver: dsolv tells you what to install, zick installs it.

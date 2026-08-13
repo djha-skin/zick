@@ -1,0 +1,30 @@
+#!/usr/bin/make -f
+# debian/rules for zick.  The .orig tarball vendors the sibling systems
+# (cliff/ nrdl/ svers/) alongside the zick source, so this build is
+# self-contained except for the ocicl deps fetched from the network.
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	# Fetch the ocicl dependency manager (no distro package for it).
+	curl -fSsL -o /tmp/ocicl.tgz \
+	    https://github.com/ocicl/ocicl/releases/download/v2.17.0/ocicl-2.17.0-linux-amd64.tar.gz
+	tar xzf /tmp/ocicl.tgz -C /tmp
+	mv /tmp/ocicl /usr/bin/ocicl
+	chmod +x /usr/bin/ocicl
+
+	# Make the vendored siblings visible to ASDF.
+	mkdir -p "$(HOME)/common-lisp"
+	cp -r cliff nrdl svers "$(HOME)/common-lisp/"
+
+	ocicl setup
+	ocicl install
+	sbcl --dynamic-space-size 4096 --control-stack-size 32 \
+	     --non-interactive --load scripts/ci-build.lisp
+
+override_dh_auto_install:
+	install -Dm755 zick debian/zick/usr/bin/zick
+
+override_dh_auto_test:
+	cd "$$(mktemp -d)" && /usr/bin/zick init && /usr/bin/zick list
