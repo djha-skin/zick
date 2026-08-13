@@ -218,9 +218,9 @@ jobs:
 
       # Scoop instead of Chocolatey: not preinstalled on the runner, but the
       # one-line bootstrap is cheap, and Scoop extracts the official SBCL MSI
-      # into a deterministic per-user dir (~/scoop/apps/sbcl/current) with
-      # the runtime DLLs beside sbcl.exe — no MSI-installer path hunting.
-      # It also matches how we distribute zick itself (Scoop manifest).
+      # into a deterministic per-user dir (~/scoop/apps/sbcl/current) — no
+      # MSI-installer path hunting.  It also matches how we distribute zick
+      # itself (Scoop manifest).
       - name: install sbcl
         shell: pwsh
         run: |
@@ -281,50 +281,14 @@ jobs:
           fi
           test -x zick.exe
 
-      - name: bundle runtime DLLs
-        shell: bash
-        run: |
-          # SBCL's Windows executable needs its runtime DLLs next to it.
-          # Scoop installs SBCL to ~/scoop/apps/sbcl/current with the DLLs
-          # beside sbcl.exe.  Diagnostics first: the pwsh install step and
-          # this bash step may disagree on the home dir (Git Bash $HOME vs
-          # pwsh $HOME), so print both and list what Scoop actually created
-          # before hunting for the DLL.
-          cd "$GITHUB_WORKSPACE"
-          echo "HOME=$HOME"
-          echo "USERPROFILE=$USERPROFILE"
-          ls -la "$HOME/scoop/apps/sbcl/" 2>/dev/null || true
-          ls -la "$USERPROFILE/scoop/apps/sbcl/" 2>/dev/null || true
-
-          # Try the deterministic Scoop layout under either home form.
-          SBCL_DIR=
-          for base in "$HOME/scoop/apps/sbcl/current" \
-                      "$USERPROFILE/scoop/apps/sbcl/current"; do
-            if [ -n "$base" ] && [ -f "$base/libsbcl.dll" ]; then
-              SBCL_DIR="$base"
-              break
-            fi
-          done
-          if [ -z "$SBCL_DIR" ]; then
-            # No current link (or a different layout): search Scoop only.
-            # A machine-wide find is far too slow on the runner.
-            SBCL_DIR="$(dirname "$(find "$HOME/scoop" "$USERPROFILE/scoop" \
-                -iname 'libsbcl.dll' 2>/dev/null | head -1)")"
-          fi
-          if [ -z "$SBCL_DIR" ] || [ ! -f "$SBCL_DIR/libsbcl.dll" ]; then
-            echo "could not locate libsbcl.dll" >&2
-            echo "HOME=$HOME USERPROFILE=$USERPROFILE" >&2
-            find "$HOME/scoop" "$USERPROFILE/scoop" -maxdepth 5 \
-              -iname 'libsbcl.dll' 2>/dev/null | head -20 >&2
-            exit 1
-          fi
-          echo "SBCL_DIR=$SBCL_DIR"
-          cp "$SBCL_DIR"/libsbcl.dll .
-          cp "$SBCL_DIR"/libgcc_s_seh-1.dll . 2>/dev/null || true
-          cp "$SBCL_DIR"/libwinpthread-1.dll . 2>/dev/null || true
-
-      # Smoke test AFTER the DLLs are bundled: zick.exe dies on a missing
-      # libsbcl.dll otherwise.
+      # No runtime DLLs to bundle: the SBCL 2.6.7 Windows MSI ships a
+      # self-contained runtime (sbcl.exe imports only ADVAPI32/KERNEL32 —
+      # no libsbcl.dll in the distribution at all), and save-lisp-and-die
+      # appends the core to a copy of that exe, so zick.exe is likewise
+      # self-contained.  Verified: zick init/list ran clean on the runner
+      # with zero DLLs present (run 31670912606), and objdump on the MSI
+      # sbcl.exe shows no libsbcl import.  The smoke test below is the
+      # guard — if this ever regresses, it fails here with no hunting.
       - name: smoke test
         shell: bash
         run: |
@@ -337,7 +301,7 @@ jobs:
         shell: bash
         run: |
           cd "$GITHUB_WORKSPACE"
-          zip zick-windows-x64.zip zick.exe libsbcl.dll libgcc_s_seh-1.dll libwinpthread-1.dll
+          zip zick-windows-x64.zip zick.exe
 
       - name: upload binary
         uses: actions/upload-artifact@v4

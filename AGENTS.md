@@ -101,6 +101,22 @@ The build script bakes the large heap and control-stack sizes needed for
 big repository resolutions (e.g. test-apt's 19 MB APT index) into the
 binary; see `scripts/build` for override knobs.
 
+### Inspecting CI builds: save the log, then grep
+
+CI build logs are huge and mostly noise; never dump a full log into
+context. Save it to a file once and grep it:
+
+```bash
+gh run view --job <job-id> --log > /tmp/ci-job.log
+gh run view <run-id> --log-failed > /tmp/ci-failed.log
+
+# Then grep for what matters (step boundaries, our diagnostics, errors):
+grep -n 'bundle runtime DLLs\|HOME=\|SBCL_DIR\|libsbcl\|error\|Error' /tmp/ci-job.log
+```
+
+Query status with `--json` (never `--log`) when all you need is which
+steps failed, and prefer `--log-failed` over the full log.
+
 ## Session Completion
 
 Before ending a session, update Beads, run quality gates, commit changes, push
