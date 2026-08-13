@@ -81,6 +81,16 @@
   (packages (f:empty-map))
   (files (f:empty-map)))
 
+(setf (documentation 'make-store 'function)
+      "Return a new STORE, optionally with the given :PACKAGES and
+       :FILES maps.")
+(setf (documentation 'store-p 'function)
+      "Return non-nil when THING is a STORE.")
+(setf (documentation 'store-packages 'function)
+      "Return STORE's package map (name -> package record).")
+(setf (documentation 'store-files 'function)
+      "Return STORE's file map (path -> file record).")
+
 (defstruct package-record
   "An installed package.  DEPENDENCIES is an FSet set of package
    names; METADATA is an FSet map (or nil)."
@@ -91,6 +101,23 @@
   (is-source nil)
   (dependencies (f:empty-set)))
 
+(setf (documentation 'make-package-record 'function)
+      "Return a new PACKAGE-RECORD from the given keyword initargs.")
+(setf (documentation 'package-record-p 'function)
+      "Return non-nil when THING is a PACKAGE-RECORD.")
+(setf (documentation 'package-record-name 'function)
+      "Return the name of PACKAGE-RECORD.")
+(setf (documentation 'package-record-version 'function)
+      "Return the version of PACKAGE-RECORD.")
+(setf (documentation 'package-record-location 'function)
+      "Return the archive URL of PACKAGE-RECORD.")
+(setf (documentation 'package-record-metadata 'function)
+      "Return the metadata map of PACKAGE-RECORD, or nil.")
+(setf (documentation 'package-record-is-source 'function)
+      "Return whether PACKAGE-RECORD is a source package.")
+(setf (documentation 'package-record-dependencies 'function)
+      "Return the FSet set of package names PACKAGE-RECORD depends on.")
+
 (defstruct file
   "A file installed by a package, keyed by PATH.  OWNER is the name of
    the owning package."
@@ -99,6 +126,22 @@
   (class nil)
   (checksum nil)
   (owner nil))
+
+(setf (documentation 'make-file 'function)
+      "Return a new FILE record from the given keyword initargs.")
+(setf (documentation 'file-p 'function)
+      "Return non-nil when THING is a FILE.")
+(setf (documentation 'file-path 'function)
+      "Return the path of FILE.")
+(setf (documentation 'file-size 'function)
+      "Return the size in bytes of FILE.")
+(setf (documentation 'file-class 'function)
+      "Return the class of FILE: :NORMAL-FILE, :CONFIG-FILE, or
+       :GHOST-FILE.")
+(setf (documentation 'file-checksum 'function)
+      "Return the SHA-256 checksum of FILE, or nil for ghost files.")
+(setf (documentation 'file-owner 'function)
+      "Return the name of the package that owns FILE.")
 
 ;;; NRDL serialization
 ;;;

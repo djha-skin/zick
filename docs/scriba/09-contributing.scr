@@ -2,7 +2,43 @@
 
 @title(Contributing)
 
-This page explains how to contribute to zick.  Content lands here in
-the API and housekeeping bead.
+@i(Thank you so much for considering contribution to zick!)
+
+A contribution can be large or small, code or non-code.  To make a
+contribution, first log a GitHub issue.  Talk about what you want, and ask
+for others' opinions.  The project tracks its work with
+@link[uri="https://github.com/beads/beads"](Beads) issues in the repository
+— run @c(bd ready) to see what work is available.
+
+When you go to make the PR, please use the following checklist to test
+whether or not it is likely to be accepted:
+
+@begin(enum)
+@item(@b(Is it based on the @c(main) branch?)) Please make PRs to the
+@c(main) branch.
+@item(@b(Do you have tests in your PR, and do they pass?)) Tests are in two
+places in zick: the @c(tests/) directory, where more or less normal unit
+tests (using @link[uri="https://shinmera.github.io/parachute/"](Parachute))
+reside; and the @c(tests/resources/scripts) directory, where scripty
+integration tests reside (run against the built binary and the HTTPS fixture
+server).  You must have at least a script test (and preferably one or more
+unit tests) as a "spot-check" of your feature if the PR is to be merged.
+The test need not be elaborate; a simple test is better than no tests.
+Run the unit suites with @c(make test) and the black-box suite with
+@c(make test-black-box) (the black-box suite drives the built binary, so
+run @c(./scripts/build) first).
+@item(@b(Did you add documentation around the feature in your PR?)) Generally
+this at least means adding something to the @c(Command Reference) section of
+this manual (see the docs-writing instructions in the repository's
+@c(.agents/skills/) directory), and regenerating the manual with
+@c(make docs) to confirm the pages build and render.
+@item(@b(Did you add an entry to the Changelog?)) This project keeps a
+curated changelog in @c(CHANGELOG.md).
+@end(enum)
+
+There are some exceptions to the above rules.  For example, if your patch is
+less than two lines' difference from the previous version, your PR may be a
+"typo" PR, which may qualify to get around some of the above rules.  Just
+ask the team on your GitHub issue.
 
 @end(section)

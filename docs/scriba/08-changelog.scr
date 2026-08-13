@@ -2,7 +2,122 @@
 
 @title(Changelog)
 
-This page summarizes what has changed in each zick release.  Content
-lands here in the API and housekeeping bead.
+All notable changes to zick are documented in this section.  The canonical,
+up-to-date changelog lives in the repository's @c(CHANGELOG.md).
+
+@begin(section)
+@title(Unreleased)
+
+Added:
+
+@begin(list)
+@item(@c(zick list) subcommand: prints every installed package with its
+version, sorted by name.  An empty database prints nothing and exits 0.)
+@item(@c(zick orphans) subcommand: lists the installed packages that nothing
+depends on (the source nodes of the dependency graph).  Installing a package
+that depends on another and then removing the depender leaves the dependency
+reported by @c(orphans).)
+@item(Project scaffolding: ASDF system @c(com.djhaskin.zick) with a tests
+system, CLIFF-based entry point, Roswell script, Makefile, and ocicl
+dependency pinning.)
+@end(list)
+
+Fixed:
+
+@begin(list)
+@item(NRDL output: command results that carry a collection (files,
+dependers, dependees, removed packages, packages, orphans, verification
+results) now emit FSet seqs, so an empty collection renders as @c([])
+instead of @c(false) (NRDL maps nil, the empty CL list, to false).  Notably,
+@c(zick orphans) on a store with no orphans previously printed
+@c(orphaned-packages false).)
+@item(@c(zick add -m) JSON metadata: NRDL reads JSON object keys back as
+case-preserved keywords (e.g. @c(:|zick|)), which the metadata
+keywordization skipped, so config-file/ghost-file classification (and
+therefore upgrade put-aside/do-nothing decisions) was silently disabled for
+packages installed with @c(-m).  Keys are now normalized to the store's
+uppercase keywords (@c(:zick)/@c(:config-files)).)
+@item(Smoke tests for the CLI entry point.)
+@item(Port of @c(zic.fs): archive handling via zippy, SHA-256/CRC-32 via
+ironclad, downloads via dexador/quri, and @c(.zick-db) marking-file search,
+with a Parachute test suite (60 assertions).)
+@item(Port of @c(zic.db): the package/file store as FSet persistent records
+(@c(package-record)/@c(file)/@c(store)) serialized to a single NRDL document
+via @c(slurp-store)/@c(save-store) (atomic temp + rename), with the full
+query and mutation API (package-id, package-info, package-files, owned-by-p,
+dependers/dependees, add-package, insert-file/use, remove-package/files/uses)
+and a Parachute test suite (82 assertions).)
+@item(Port of @c(zic.session): @c(with-zick-session) (lock first, then open
+the database), @c(with-database) (slurp/save the NRDL store at
+@c(.zick-db/packages.nrdl)), @c(with-filelock) (a lock file whose existence
+is the lock, created atomically and removed on close, with zic's descriptive
+error text adapted to zick), and @c(path-to-connection-string), with a
+Parachute test suite (18 assertions) including a cross-process
+lock-contention test.)
+@item(Black-box test environment: a python3 HTTPS fixture server with a
+self-signed certificate (optional basic auth, user @c(mode) password
+@c(code)) serving a wwwroot of @c(a.zip)/@c(b.zip)/@c(c.zip)/@c(bad.zip)
+(the last with a corrupted entry for CRC-violation testing), plus
+dsolv-style POSIX shell scripts (@c(tests/resources/scripts/test-*))
+covering init/add/info/files/verify (exit codes 0/3/4)/remove/
+dependers/dependees, run by @c(make test-black-box).)
+@item(@c(zick remove) refusal now names the packages that depend on the one
+being removed, and the dry-run path (@c(-r)/@c(--enable-dry-run)) is
+exercised end to end: it reports the full removal set (dependers first under
+@c(-c)) while leaving the package record, its files, and its config-file
+backups untouched.)
+@item(Install-next-to-existing-packages: @c(zick add) refuses an archive
+whose files are already owned by another package, listing each clashing file
+with its owner; disjoint installs succeed and both packages are queryable.
+New @c(package-installable-p) and @c(list-archive-files) helpers back the
+refusal.)
+@item(Install-story test gaps closed: an instrumented test pins the HTTP
+options @c(fs:download) sends for basic/header/oauth-token authorizations and
+the insecure flag (by recording dexador:get's arguments); the store
+serialization round-trip now also asserts package metadata and file classes
+survive NRDL save/load; and the black-box @c(test-add) verifies the recorded
+package end to end via @c(info) and @c(files) on a fresh database.)
+@item(CLI download authorizations: @c(zick add) accepts
+@c(--json-download-authorizations) (per-host @c(basic)/@c(header)/
+@c(oauth-token) records, parsed with NRDL into @c(fs:download)'s auth table),
+and @c(-n)/@c(--enable-insecure) reaches the HTTP client for self-signed
+fixtures.  CLI subcommand functions renamed to standard Common Lisp names
+(@c(add-command), @c(files-command), ...; no @c(!) suffix), per the style
+guide.)
+@item(Port of @c(zic.package): install/remove/verify of packages against the
+NRDL store, with config-file upgrade precautions (install/put-aside/
+do-nothing fates and in-place and downgrade guards via svers' debian-vercmp),
+zip-based installs via zippy, dependency-aware removal (cascade vs refuse,
+dry-run, sink-first linearization), file-conflict and checksum verification,
+and the package query API, with a Parachute test suite (71 assertions).)
+@item(Port of @c(zic.cli) (@c(src/main.lisp)): the @c(zick) command line via
+CLIFF with subcommands @c(add), @c(files), @c(info), @c(init), @c(remove),
+@c(dependers), @c(dependees), and @c(verify) (plus @c(list) and
+@c(orphans)), the zic short aliases, NRDL output, verify exit codes 3
+(package not found) and 4 (verification failures), JSON package metadata for
+@c(-m) parsed with NRDL, and the deprecated @c(.zic-db) marking-file fallback
+(with a warning); @c(cl-json) dropped in favor of NRDL's JSON superset
+parsing, with a CLI integration test suite (25 assertions).)
+@end(list)
+
+Changed:
+
+@begin(list)
+@item(Default output format is NRDL (zic's yaml default is dropped).)
+@end(list)
+
+@end(section)
+
+@begin(section)
+@title(0.1.0 — 2026-08-12)
+
+Added:
+
+@begin(list)
+@item(Beads roadmap for porting zic to Common Lisp (20 issues), including the
+database backend ADR and the ocicl library availability spike.)
+@end(list)
+
+@end(section)
 
 @end(section)

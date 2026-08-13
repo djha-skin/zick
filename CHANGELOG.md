@@ -92,7 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   package query API, with a Parachute test suite (71 assertions).
 - Port of `zic.cli` (`src/main.lisp`): the `zick` command line via
   CLIFF with subcommands `add`, `files`, `info`, `init`, `remove`,
-  `dependers`, `dependees`, and `verify` (plus stubbed `list` and
+  `dependers`, `dependees`, and `verify` (plus `list` and
   `orphans`), the zic short aliases, NRDL output, verify exit codes
   3 (package not found) and 4 (verification failures), JSON package
   metadata for `-m` parsed with NRDL, and the deprecated `.zic-db`
