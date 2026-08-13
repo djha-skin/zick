@@ -18,6 +18,7 @@
     #:crc-violations
     #:unpack
     #:list-files
+    #:all-parents
     #:find-marking-file)
   (:import-from #:org.shirakumo.zippy
     #:compress-zip
@@ -376,6 +377,49 @@
     (let ((proj (merge-pathnames "proj/src/" tmp)))
       (ensure-directories-exist proj)
       (true (null (find-marking-file proj ".zick-db"))))))
+
+(define-test all-parents-terminates-on-relative-paths
+  :parent nil
+  "all-parents on a relative path terminates and walks up to the
+   filesystem root (regression: relative paths used to loop forever,
+   with uiop producing an ever-growing (:RELATIVE :BACK ...) chain)."
+  (let ((parents (all-parents #P"rel/dir")))
+    (true (not (null parents)))
+    ;; The absolute root / terminates the walk.
+    (true (find-if (lambda (p) (equal (pathname-directory p) '(:absolute)))
+                   parents))
+    ;; Every element is an absolute pathname now.
+    (true (every #'uiop:absolute-pathname-p parents))
+    ;; Terminates and is finite.
+    (true (< (length parents) 100))))
+
+(define-test all-parents-terminates-on-dot
+  :parent nil
+  "all-parents on the relative path #P\".\" terminates."
+  (let ((parents (all-parents #P".")))
+    (true (not (null parents)))
+    (true (every #'uiop:absolute-pathname-p parents))
+    (true (< (length parents) 100))))
+
+(define-test find-marking-file-relative-start
+  :parent nil
+  "find-marking-file with a relative start path locates the marker
+   (regression for the relative -d hang: the start is absolutized)."
+  (with-temporary-directory (tmp)
+    (uiop:with-current-directory (tmp)
+                                 ;; The string start is coerced against
+                                 ;; *default-pathname-defaults* (bound to
+                                 ;; TMP here), so this exercises
+                                 ;; find-marking-file's end-to-end
+                                 ;; behavior from a relative start.
+                                 (ensure-directories-exist "proj/src/")
+                                 (write-text-file "proj/.zick-db" "mark")
+                                 (let ((found
+                                         (find-marking-file "proj/src"
+                                                            ".zick-db")))
+                                   (true (not (null found)))
+                                   (is string= ".zick-db"
+                                       (file-namestring found))))))
 
 ;;; Small helpers
 

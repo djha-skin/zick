@@ -151,12 +151,18 @@
 
 (defun all-parents (path)
   "Return PATH followed by each of its parent directories, stopping
-   once a directory equals its own parent (the filesystem root)."
-  (loop
-    for p = path then (uiop:pathname-parent-directory-pathname p)
-    while p
-    collect p
-    until (equal p (uiop:pathname-parent-directory-pathname p))))
+   once a directory equals its own parent (the filesystem root).
+   Relative PATHs are absolutized against the current directory first:
+   uiop's parent computation on relative pathnames grows an unbounded
+   (:RELATIVE :BACK ...) chain instead of reaching the root."
+  (let ((start (if (uiop:absolute-pathname-p path)
+                   path
+                   (uiop:merge-pathnames* path (uiop:getcwd)))))
+    (loop
+      for p = start then (uiop:pathname-parent-directory-pathname p)
+      while p
+      collect p
+      until (equal p (uiop:pathname-parent-directory-pathname p)))))
 
 (defun entry-name-component (p)
   "Return the last path component of P as a string."
