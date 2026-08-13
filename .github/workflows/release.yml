@@ -270,14 +270,6 @@ jobs:
           fi
           test -x zick.exe
 
-      - name: smoke test
-        shell: bash
-        run: |
-          TMPD=$(mktemp -d)
-          cd "$TMPD"
-          "$GITHUB_WORKSPACE/zick.exe" init
-          "$GITHUB_WORKSPACE/zick.exe" list
-
       - name: bundle runtime DLLs
         shell: bash
         run: |
@@ -287,6 +279,16 @@ jobs:
           cp "$SBCL_BIN"/libsbcl.dll .
           cp "$SBCL_BIN"/libgcc_s_seh-1.dll . 2>/dev/null || true
           cp "$SBCL_BIN"/libwinpthread-1.dll . 2>/dev/null || true
+
+      # Smoke test AFTER the DLLs are bundled: zick.exe dies on a missing
+      # libsbcl.dll otherwise.
+      - name: smoke test
+        shell: bash
+        run: |
+          TMPD=$(mktemp -d)
+          cd "$TMPD"
+          "$GITHUB_WORKSPACE/zick.exe" init
+          "$GITHUB_WORKSPACE/zick.exe" list
 
       - name: package
         shell: bash
