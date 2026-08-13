@@ -75,7 +75,9 @@ jobs:
           tar xzf "zick_${VERSION}.orig.tar.gz" -C /tmp/debsrc
           cp -r packaging/debian "/tmp/debsrc/zick-${VERSION}/debian"
           cd "/tmp/debsrc/zick-${VERSION}"
-          dpkg-buildpackage -S --no-sign
+          # dpkg-source -b builds the source package without touching
+          # debian/rules, so no debhelper is needed in the build image.
+          dpkg-source -b .
           cp ../zick_${VERSION}* "$GITHUB_WORKSPACE/"
 
       - name: produce source package (rpm)
