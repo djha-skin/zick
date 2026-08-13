@@ -8,6 +8,7 @@ cl-fad, ghcr.io/ocicl/cl-fad@sha256:c0aaffc859e419e0a94cedb08f48c2484da404363fb0
 cl-indentify, ghcr.io/ocicl/cl-indentify@sha256:30ff709a629b31630169194b2a832223201513320a90a0cdde4fc4ca3a0e3963, cl-indentify-20241228-a5fba03/cl-indentify.asd
 cl-ppcre, ghcr.io/ocicl/cl-ppcre@sha256:bf073924cf4fd5957a4fd961a95d446ed0e53fa32a5002cbd2d52182874f45e5, cl-ppcre-20250606-a2ea581/cl-ppcre.asd
 cl-reexport, ghcr.io/ocicl/cl-reexport@sha256:c795feb3e3727a19e61797187eb31bac1e855b1332335d26752200a28e9b9da8, cl-reexport-20240503-03ad7a0/cl-reexport.asd
+cl-utilities, ghcr.io/ocicl/cl-utilities@sha256:e5e0676a4e0627332a0fe64d56ed4f1890f0466d715a11e8d95561b4c2baa38f, cl-utilities-20240503-6b4de39/cl-utilities.asd
 codex, ghcr.io/ocicl/codex@sha256:edb93e9321f1afd9f92409fe4d38038e33538db5a1a7ce97cc66e6ba05a2d714, codex-20240503-7536259/codex.asd
 codex-templates, ghcr.io/ocicl/codex@sha256:edb93e9321f1afd9f92409fe4d38038e33538db5a1a7ce97cc66e6ba05a2d714, codex-20240503-7536259/codex-templates.asd
 common-doc, ghcr.io/ocicl/common-doc@sha256:b4e8fc75de5e8c48788889c69b5576d3c3e2be569743a00228163a1e8ff06f6a, common-doc-20240503-bcde4cf/common-doc.asd
@@ -37,6 +38,7 @@ pathname-utils-test, ghcr.io/ocicl/pathname-utils@sha256:1f6f209c3d5286afdccf42e
 quri, ghcr.io/ocicl/quri@sha256:e2559f91600e4895e115b42dde88fcaac3677f051335d73431888dcf7af99f95, quri-0.7.0/quri.asd
 salza2, ghcr.io/ocicl/salza2@sha256:0f9d930524b469e1442372a6e12b26742d9e6a1144e6a455006943190d1ea71e, salza2-2.1/salza2.asd
 scriba, ghcr.io/ocicl/scriba@sha256:2a64f83cf0264081d4e233db2a063b0c031e420ea6252911f649354199ab5ddf, scriba-20240503-ce1ab03/scriba.asd
+split-sequence, ghcr.io/ocicl/split-sequence@sha256:3a37662eedd99c42995587b9d443c4631f25c4c523091bcca31a27b880585b8e, split-sequence-2.0.1/split-sequence.asd
 trivial-custom-debugger, ghcr.io/ocicl/trivial-custom-debugger@sha256:b72a9d829d2635982c5d07604c24b22158cb550cd6b2915df2280ae59922be11, trivial-custom-debugger-20240503-802473c/trivial-custom-debugger.asd
 trivial-features, ghcr.io/ocicl/trivial-features@sha256:e278e24d39060fc7d3715531b16ddd9ab7f93f22ade53e436c0b86dbae3aa065, trivial-features-1.0/trivial-features.asd
 trivial-package-local-nicknames, ghcr.io/ocicl/trivial-package-local-nicknames@sha256:d3b07c875822d9bd91cc0e26c1f681ad05acdc5c50a3f30c8077fb85343e095a, trivial-package-local-nicknames-20240503-8a4d09c/trivial-package-local-nicknames.asd

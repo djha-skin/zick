@@ -42,13 +42,26 @@ jobs:
       - name: ocicl setup and install deps
         run: |
           ocicl setup
-          ocicl install
+          # Retry the install: ghcr.io downloads are occasionally flaky
+          # (transient TLS/network errors) and a full retry is cheap.
+          i=0
+          until ocicl install; do
+            i=$((i+1))
+            [ "$i" -ge 3 ] && exit 1
+            echo "ocicl install attempt $i failed; retrying..."
+            sleep 5
+          done
 
       - name: clone sibling systems
         run: |
           mkdir -p ~/common-lisp
+          # core.autocrlf=false: on Windows, Git would otherwise check the
+          # siblings out with CRLF endings, which breaks the multi-line
+          # format strings in cliff (SBCL's FORMATTER rejects ~ followed by
+          # a Return character).
           for r in cliff nrdl svers; do
-            git clone --quiet --depth 1 "https://github.com/djha-skin/$r.git" ~/common-lisp/$r
+            git clone --quiet --depth 1 --config core.autocrlf=false \
+              "https://github.com/djha-skin/$r.git" ~/common-lisp/$r
           done
 
       - name: build zick
@@ -151,14 +164,27 @@ jobs:
       - name: clone sibling systems
         run: |
           mkdir -p ~/common-lisp
+          # core.autocrlf=false: on Windows, Git would otherwise check the
+          # siblings out with CRLF endings, which breaks the multi-line
+          # format strings in cliff (SBCL's FORMATTER rejects ~ followed by
+          # a Return character).
           for r in cliff nrdl svers; do
-            git clone --quiet --depth 1 "https://github.com/djha-skin/$r.git" ~/common-lisp/$r
+            git clone --quiet --depth 1 --config core.autocrlf=false \
+              "https://github.com/djha-skin/$r.git" ~/common-lisp/$r
           done
 
       - name: build zick
         run: |
           ocicl setup
-          ocicl install
+          # Retry the install: ghcr.io downloads are occasionally flaky
+          # (transient TLS/network errors) and a full retry is cheap.
+          i=0
+          until ocicl install; do
+            i=$((i+1))
+            [ "$i" -ge 3 ] && exit 1
+            echo "ocicl install attempt $i failed; retrying..."
+            sleep 5
+          done
           sbcl --dynamic-space-size 4096 --control-stack-size 32 \
                --non-interactive --load scripts/ci-build.lisp
           test -x "$GITHUB_WORKSPACE/zick"
@@ -207,15 +233,28 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/common-lisp
+          # core.autocrlf=false: on Windows, Git would otherwise check the
+          # siblings out with CRLF endings, which breaks the multi-line
+          # format strings in cliff (SBCL's FORMATTER rejects ~ followed by
+          # a Return character).
           for r in cliff nrdl svers; do
-            git clone --quiet --depth 1 "https://github.com/djha-skin/$r.git" ~/common-lisp/$r
+            git clone --quiet --depth 1 --config core.autocrlf=false \
+              "https://github.com/djha-skin/$r.git" ~/common-lisp/$r
           done
 
       - name: build zick
         shell: bash
         run: |
           ocicl setup
-          ocicl install
+          # Retry the install: ghcr.io downloads are occasionally flaky
+          # (transient TLS/network errors) and a full retry is cheap.
+          i=0
+          until ocicl install; do
+            i=$((i+1))
+            [ "$i" -ge 3 ] && exit 1
+            echo "ocicl install attempt $i failed; retrying..."
+            sleep 5
+          done
           sbcl --dynamic-space-size 4096 --control-stack-size 32 \
                --non-interactive --load scripts/ci-build.lisp
           test -x "$GITHUB_WORKSPACE/zick.exe"
