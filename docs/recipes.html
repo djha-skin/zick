@@ -47,11 +47,66 @@
   <h1 class="doc-title">zick: Zip-based Package Manager » Recipes</h1>
   <article id="article" data-section="recipes">
     <aside>
-      <ol class="toc"><li><a href="overview.html" data-node="overview">Overview</a></li><li><a href="get-zick.html" data-node="get-zick">Get zick</a></li><li><a href="quickstart.html" data-node="quickstart">Quickstart</a></li><li><a href="a-longer-example.html" data-node="a-longer-example">A Longer Example</a></li><li><a href="command-reference.html" data-node="command-reference">Command Reference</a></li><li><a href="architecture.html" data-node="architecture">Architecture</a></li><li><a href="recipes.html" data-node="recipes">Recipes</a></li><li><a href="changelog.html" data-node="changelog">Changelog</a></li><li><a href="contributing.html" data-node="contributing">Contributing</a></li><li><a href="api-reference.html" data-node="api-reference">API Reference</a></li></ol>
+      <ol class="toc"><li><a href="overview.html" data-node="overview">Overview</a></li><li><a href="get-zick.html" data-node="get-zick">Get zick</a></li><li><a href="quickstart.html" data-node="quickstart">Quickstart</a></li><li><a href="a-longer-example.html" data-node="a-longer-example">A Longer Example</a></li><li><a href="command-reference.html" data-node="command-reference">Command Reference</a><ol><li><a href="command-reference.html#how-options-are-gathered" data-node="how-options-are-gathered">How Options Are Gathered</a></li><li><a href="command-reference.html#common-options" data-node="common-options">Common Options</a></li><li><a href="command-reference.html#init" data-node="init">init</a></li><li><a href="command-reference.html#add" data-node="add">add</a></li><li><a href="command-reference.html#files" data-node="files">files</a></li><li><a href="command-reference.html#info" data-node="info">info</a></li><li><a href="command-reference.html#dependers" data-node="dependers">dependers</a></li><li><a href="command-reference.html#dependees" data-node="dependees">dependees</a></li><li><a href="command-reference.html#remove" data-node="remove">remove</a></li><li><a href="command-reference.html#list" data-node="list">list</a></li><li><a href="command-reference.html#orphans" data-node="orphans">orphans</a></li><li><a href="command-reference.html#verify" data-node="verify">verify</a></li><li><a href="command-reference.html#help" data-node="help">help</a></li></ol></li><li><a href="architecture.html" data-node="architecture">Architecture</a><ol><li><a href="architecture.html#project-layout" data-node="project-layout">Project Layout</a></li><li><a href="architecture.html#finding-the-project" data-node="finding-the-project">Finding the Project</a></li><li><a href="architecture.html#the-store" data-node="the-store">The Store</a></li><li><a href="architecture.html#sessions-and-locking" data-node="sessions-and-locking">Sessions and Locking</a></li><li><a href="architecture.html#the-package-lifecycle" data-node="the-package-lifecycle">The Package Lifecycle</a><ol><li><a href="architecture.html#install" data-node="install">Install</a></li><li><a href="architecture.html#upgrade" data-node="upgrade">Upgrade</a></li><li><a href="architecture.html#0-verify" data-node="0-verify">Verify</a></li><li><a href="architecture.html#1-remove" data-node="1-remove">Remove</a></li><li><a href="architecture.html#2-orphans" data-node="2-orphans">Orphans</a></li></ol></li><li><a href="architecture.html#pairing-with-the-resolver" data-node="pairing-with-the-resolver">Pairing with the Resolver</a></li></ol></li><li><a href="recipes.html" data-node="recipes">Recipes</a><ol><li><a href="recipes.html#pinning-a-version" data-node="pinning-a-version">Pinning a Version</a></li><li><a href="recipes.html#installing-a-package-with-a-dependency" data-node="installing-a-package-with-a-dependency">Installing a Package with a Dependency</a></li><li><a href="recipes.html#upgrading-a-package" data-node="upgrading-a-package">Upgrading a Package</a></li><li><a href="recipes.html#verifying-an-install-after-a-restore" data-node="verifying-an-install-after-a-restore">Verifying an Install After a Restore</a></li><li><a href="recipes.html#recording-metadata-without-downloading" data-node="recording-metadata-without-downloading">Recording Metadata Without Downloading</a></li><li><a href="recipes.html#declaring-configuration-files" data-node="declaring-configuration-files">Declaring Configuration Files</a></li><li><a href="recipes.html#removing-a-package-and-its-dependents" data-node="removing-a-package-and-its-dependents">Removing a Package and Its Dependents</a></li><li><a href="recipes.html#finding-cruft" data-node="finding-cruft">Finding Cruft</a></li><li><a href="recipes.html#using-zick-in-ci" data-node="using-zick-in-ci">Using zick in CI</a></li><li><a href="recipes.html#installing-what-a-resolver-picked" data-node="installing-what-a-resolver-picked">Installing What a Resolver Picked</a></li></ol></li><li><a href="changelog.html" data-node="changelog">Changelog</a></li><li><a href="contributing.html" data-node="contributing">Contributing</a></li><li><a href="api-reference.html" data-node="api-reference">API Reference</a></li></ol>
     </aside>
     <main class="codex-section">
-      <p>This page collects short how-tos.  Content lands here in the
-reference bead.</p>
+      <p>Short how-tos for common things you can do with zick.  Each recipe
+assumes you are inside a zick project (one with a <code>.zick-db</code>
+directory at or above your current directory); run <code>zick init</code>
+first if you do not have one.</p><h1 id="pinning-a-version">Pinning a Version</h1><p>Install a specific version of a package from its archive URL:</p><pre><code class="sh">zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
+</code></pre><p>The version is recorded verbatim in the store, and <code>zick verify</code>
+checks the installed files against the recorded checksums — so the
+pinned version stays pinned until you upgrade it.</p><h1 id="installing-a-package-with-a-dependency">Installing a Package with a Dependency</h1><p>Declare that one package depends on another with <code>-u</code>.  The dependee
+must already be installed:</p><pre><code class="sh">zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
+zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
+</code></pre><p><code>zick dependers -k mylib</code> now reports <code>myapp</code>, and <code>zick remove
+-k mylib</code> refuses to remove it unless you pass <code>-c</code> to cascade.</p><h1 id="upgrading-a-package">Upgrading a Package</h1><p>Re-add the package with the new version.  zick removes the old files,
+puts changed configuration files aside, and keeps unchanged ones:</p><pre><code class="sh">zick add -k mylib -V 1.3.0 -l https://example.com/mylib-1.3.0.zip
+</code></pre><p>If the new version compares equal to the installed one, zick treats it
+as an in-place replacement and errors unless you pass
+<code>-i</code>/<code>--enable-allow-inplace</code>.  Re-adding at a lower version is a
+downgrade and errors unless you pass <code>-g</code>/<code>--enable-allow-downgrades</code>.</p><h1 id="verifying-an-install-after-a-restore">Verifying an Install After a Restore</h1><p>After a <code>git clean</code>, a restore from backup, or a fresh checkout,
+check that the files on disk still match the store:</p><pre><code class="sh">zick verify -k mylib
+</code></pre><p>Exits 0 when everything matches, 3 when the package is not installed,
+and 4 when verification finds problems — printing the failing files
+grouped by failure kind.  Run <code>zick verify</code> for every installed
+package, or re-add each package to repair the tree.</p><h1 id="recording-metadata-without-downloading">Recording Metadata Without Downloading</h1><p>Record a package from its options alone, without touching the network
+or the project tree:</p><pre><code class="sh">zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip -W
+</code></pre><p><code>-W</code>(download disabled) is useful for recording metadata-only
+records, or for tests that exercise the store without network access.
+The package will have no files until you re-add it with downloading
+enabled.</p><h1 id="declaring-configuration-files">Declaring Configuration Files</h1><p>Tell zick which files a package installs are configuration — files a
+local edit might change, which upgrades should preserve rather than
+clobber.  Pass JSON metadata on the command line:</p><pre><code class="sh">zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip \
+    -m '{&quot;zick&quot;: {&quot;config-files&quot;: [&quot;etc/myapp.conf&quot;]}}'
+</code></pre><p>zick records such files as <code>config-file</code> rather than
+<code>normal-file</code>: verification only checks that they exist, removal
+backs them up (as <code>myapp.0.1.0.backup</code>) before deleting them, and
+upgrades put changed ones aside rather than overwriting your edits.</p><h1 id="removing-a-package-and-its-dependents">Removing a Package and Its Dependents</h1><p>Remove a package, cascading to the packages that depend on it (sinks
+first), with <code>-c</code>:</p><pre><code class="sh">zick remove -k mylib -c
+</code></pre><p>Preview the removal without touching anything:</p><pre><code class="sh">zick remove -k mylib -c -r
+</code></pre><p>The result lists every package that would be removed.</p><h1 id="finding-cruft">Finding Cruft</h1><p>List the installed packages that nothing depends on — a good place to
+look when pruning a project:</p><pre><code class="sh">zick orphans
+</code></pre><p>Each reported package is a source node of the dependency graph: nothing
+installed depends on it.</p><h1 id="using-zick-in-ci">Using zick in CI</h1><p>A reproducible install step for a checkout in CI looks like this:</p><pre><code class="sh">zick init
+zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
+zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
+zick verify -k myapp
+</code></pre><p>Because every <code>add</code> records the files it installed and every
+<code>verify</code> checks them against the store, the step is repeatable and
+auditable: the same commands produce the same tree, and a partial or
+corrupt install fails the build with a precise report.</p><h1 id="installing-what-a-resolver-picked">Installing What a Resolver Picked</h1><p>When zick is paired with a dependency resolver, the resolver decides
+which versions a build needs and returns their URLs; zick installs
+exactly those archives:</p><pre><code class="sh"># resolver picks versions and prints locations, e.g.:
+# mylib 1.2.0 https://example.com/mylib-1.2.0.zip
+# myapp 0.1.0 https://example.com/myapp.zip
+
+zick init
+zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
+zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
+zick verify -k myapp
+</code></pre><p>zick takes the versions it is given and has no opinion about version
+selection, so the two tools compose cleanly in a build.</p>
     </main>
   </article>
   <footer>

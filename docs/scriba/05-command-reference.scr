@@ -2,7 +2,417 @@
 
 @title(Command Reference)
 
-This page documents every zick subcommand, its arguments, defaults,
-and aliases.  Content lands here in the reference bead.
+This page documents every zick subcommand, its arguments, defaults, and
+the result it returns.  Output is an NRDL document by default; use
+@c(--set-output-format json) to get JSON instead.
+
+@begin(section)
+@title(How Options Are Gathered)
+
+zick is a @link[uri="https://github.com/djha-skin/cliff"](CLIFF)-powered
+program.  Every option can be given through three channels, in order of
+precedence — configuration files, environment variables, then the command
+line — with later values overriding earlier ones.
+
+Configuration files live in three places, each overriding the one before it:
+
+@begin(list)
+@item(A system-wide file: @c(/etc/zick/config.nrdl) on Linux/POSIX,
+@c(/Library/Preferences/zick/config.nrdl) on macOS, and
+@c(%PROGRAMDATA%\zick\config.nrdl) on Windows)
+@item(A per-user file: @c(${XDG_CONFIG_HOME}/zick/config.nrdl) (by
+default @c(~/.config/zick/config.nrdl)) on Linux/POSIX,
+@c(~/Library/Preferences/zick/config.nrdl) on macOS, and
+@c(%LOCALAPPDATA%\zick\config.nrdl) on Windows)
+@item(A project file named @c(.zick.nrdl) in the directory zick is run
+from, or any of its parents)
+@end(list)
+
+Every option also has an environment variable, named
+@c(ZICK_<KIND>_<OPTION>):
+
+@begin(list)
+@item(@c(ZICK_FLAG_<OPTION>=1) enables a flag)
+@item(@c(ZICK_ITEM_<OPTION>=<VALUE>) sets a string value)
+@item(@c(ZICK_LIST_<OPTION>=<V1>,<V2>,...) sets a list option)
+@item(@c(ZICK_TABLE_<OPTION>=<K1>,<V1>=<K2>,<V2>=...) sets a key/value
+table option)
+@item(@c(ZICK_NRDL_<OPTION>=<NRDL_STRING>) sets a value using an NRDL
+string)
+@item(@c(ZICK_FILE_<OPTION>=<FILE_PATH>) sets a value from the contents
+of an NRDL document in a file, as if by the @c(--file-*) flag)
+@item(@c(ZICK_RAW_<OPTION>=<FILE_PATH>) sets a value from the raw bytes
+of a file, as if by the @c(--raw-*) flag)
+@end(list)
+
+On the command line, options take a spelling that matches their kind:
+@c(--enable-<option>) and @c(--disable-<option>) for flags,
+@c(--set-<option> <value>) for strings, @c(--add-<option> <value>) for
+lists, @c(--reset-<option>) to restore a default, and the
+@c(--nrdl-*), @c(--file-*), and @c(--raw-*) spellings for structured
+values.  Short aliases are listed per subcommand below.
+
+@end(section)
+
+@begin(section)
+@title(Common Options)
+
+Two options apply to every subcommand:
+
+@begin(list)
+@item(@c(-d)/@c(--set-start-directory) — the directory to start the
+zick search from.  Defaults to the current working directory.  zick
+walks up from here looking for the @c(.zick-db) marking directory that
+names the project's database.)
+@item(@c(--set-output-format) — @c("nrdl") (the default) or @c("json").
+Controls the format of the emitted result document.)
+@end(list)
+
+The defaults for the remaining options are shown on the @c(zick help)
+page under "The following options have been detected":
+@c(cascade false), @c(download-package true), @c(dry-run false),
+@c(output-format "nrdl").
+
+@end(section)
+
+@begin(section)
+@title(init)
+
+Initializes the zick database in the start directory: it creates the
+@c(.zick-db) marking directory and the store file (@c(packages.nrdl)
+inside it).  Commands run without @c(init) create the store on demand
+the first time they open it.
+
+@begin(list)
+@item(Arguments: none beyond the common options)
+@item(Aliases: none)
+@end(list)
+
+Result:
+
+@begin[lang=nrdl](code)
+{
+    result successful
+    status successful
+}
+@end(code)
+
+@end(section)
+
+@begin(section)
+@title(add)
+
+Downloads the zip archive at a URL, unpacks it into the project tree,
+and records the package and the files it owns in the store.
+
+@begin(list)
+@item(@c(-k)/@c(--set-package-name) — the package name.  Required.)
+@item(@c(-V)/@c(--set-package-version) — the package version.  Required.)
+@item(@c(-l)/@c(--set-package-location) — the URL of the zip archive.
+Required.)
+@item(@c(-u)/@c(--add-package-dependency) — a dependency on another
+installed package, by name.  May be given more than once.  The
+dependee must already be installed.)
+@item(@c(-m)/@c(--set-package-metadata) — a JSON string of extra
+metadata, honored for its @c(zick) key: @c(config-files) (paths to
+treat as configuration files) and @c(ghost-files) (paths to record
+without writing).)
+@item(@c(--json-download-authorizations) — a JSON string mapping hosts
+to authorization records (@c(type) of @c("basic"), @c("header"), or
+@c("oauth-token")), used when downloading the archive.)
+@item(@c(-W)/@c(--disable-download-package) and
+@c(-w)/@c(--enable-download-package) — whether to download and unpack
+the archive.  Downloading is on by default; @c(-W) records the package
+from its options alone, without touching the network or the tree.)
+@item(@c(-n)/@c(--enable-insecure) and @c(-N)/@c(--disable-insecure) —
+disable TLS certificate verification when downloading.)
+@item(@c(-g)/@c(--enable-allow-downgrades) and
+@c(-G)/@c(--disable-allow-downgrades) — allow re-adding a package at a
+lower version than the one installed.  Off by default.)
+@item(@c(-i)/@c(--enable-allow-inplace) and
+@c(-I)/@c(--disable-allow-inplace) — allow replacing the currently
+installed version with one that compares equal.  Off by default.)
+@end(list)
+
+Result (on success):
+
+@begin[lang=nrdl](code)
+{
+    result successful
+    status successful
+}
+@end(code)
+
+zick signals an error when a dependency named by @c(-u) is not
+installed, or when a file in the archive is already owned by another
+package.
+
+@end(section)
+
+@begin(section)
+@title(files)
+
+Lists the files owned by an installed package.
+
+@begin(list)
+@item(@c(-k)/@c(--set-package-name) — the package name.  Required.)
+@end(list)
+
+Result when the package is installed:
+
+@begin[lang=nrdl](code)
+{
+    package-files [
+        {
+            checksum "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822c"
+            class normal-file
+            path "bin/tool"
+            size 42
+        }
+    ]
+    result package-found
+    status successful
+}
+@end(code)
+
+When the package is not installed, the result is
+@c(result not-found) and @c(package-files) is omitted.  File classes
+are @c(normal-file), @c(config-file), and @c(ghost-file).
+
+@end(section)
+
+@begin(section)
+@title(info)
+
+Shows information about an installed package: its name, version,
+location, and metadata.
+
+@begin(list)
+@item(@c(-k)/@c(--set-package-name) — the package name.  Required.)
+@end(list)
+
+Result when the package is installed:
+
+@begin[lang=nrdl](code)
+{
+    package-information {
+        location "https://example.com/mylib-1.2.0.zip"
+        metadata {
+        }
+        name "mylib"
+        version "1.2.0"
+    }
+    result package-found
+    status successful
+}
+@end(code)
+
+When the package is not installed, the result is
+@c(result not-found).
+
+@end(section)
+
+@begin(section)
+@title(dependers)
+
+Lists the installed packages that depend on the named package.
+
+@begin(list)
+@item(@c(-k)/@c(--set-package-name) — the package name.  Required.)
+@end(list)
+
+Result when the package is installed:
+
+@begin[lang=nrdl](code)
+{
+    package-dependers [
+        {
+            location "https://example.com/myapp.zip"
+            name "myapp"
+            version "0.1.0"
+        }
+    ]
+    result package-found
+    status successful
+}
+@end(code)
+
+When the package is not installed, the result is
+@c(result not-found).  An empty list of dependers renders as
+@c(package-dependers [ ]).
+
+@end(section)
+
+@begin(section)
+@title(dependees)
+
+Lists the packages the named package depends on.
+
+@begin(list)
+@item(@c(-k)/@c(--set-package-name) — the package name.  Required.)
+@end(list)
+
+The result shape mirrors @c(dependers), with the key
+@c(package-dependees) instead of @c(package-dependers).
+
+@end(section)
+
+@begin(section)
+@title(remove)
+
+Uninstalls a package: deletes the files it owns (backing up its
+configuration files) and removes its record from the store.
+
+@begin(list)
+@item(@c(-k)/@c(--set-package-name) — the package name.  Required.)
+@item(@c(-c)/@c(--enable-cascade) and @c(-C)/@c(--disable-cascade) —
+with @c(-c), also remove the packages that depend on the named one,
+sinks first.  Off by default; without it, removing a package that
+others depend on signals an error.)
+@item(@c(-r)/@c(--enable-dry-run) and @c(-R)/@c(--disable-dry-run) —
+with @c(-r), compute and report the removal without touching the tree
+or the store.)
+@end(list)
+
+Result when the package is installed:
+
+@begin[lang=nrdl](code)
+{
+    dry-run false
+    removed-packages [
+        {
+            location "https://example.com/myapp.zip"
+            name "myapp"
+            version "0.1.0"
+        }
+    ]
+    result package-found
+    status successful
+}
+@end(code)
+
+With @c(-c), @c(removed-packages) lists every removed package, sinks
+first.  When the package is not installed, the result is
+@c(result not-found).
+
+@end(section)
+
+@begin(section)
+@title(list)
+
+Lists the installed packages, sorted by name.
+
+No arguments beyond the common options.
+
+Result:
+
+@begin[lang=nrdl](code)
+{
+    packages [
+        {
+            location "https://example.com/mylib-1.2.0.zip"
+            metadata {
+            }
+            name "mylib"
+            version "1.2.0"
+        }
+    ]
+    result successful
+    status successful
+}
+@end(code)
+
+When nothing is installed, zick prints nothing and exits 0.
+
+@end(section)
+
+@begin(section)
+@title(orphans)
+
+Lists the orphaned packages: the installed packages that nothing
+depends on (the source nodes of the dependency graph).
+
+No arguments beyond the common options.
+
+Result:
+
+@begin[lang=nrdl](code)
+{
+    orphaned-packages [
+    ]
+    result successful
+    status successful
+}
+@end(code)
+
+An empty store renders @c(orphaned-packages [ ]) — never
+@c(false) — because the collection is emitted as an empty sequence.
+
+@end(section)
+
+@begin(section)
+@title(verify)
+
+Checks the files of an installed package against the store: size and
+SHA-256 checksum for @c(normal-file) records, presence for
+@c(config-file) records.  Ghost files are expected to be absent.
+
+@begin(list)
+@item(@c(-k)/@c(--set-package-name) — the package name.  Required.)
+@end(list)
+
+Result when every file checks out:
+
+@begin[lang=nrdl](code)
+{
+    result package-found
+    status successful
+    verification-results [ ]
+}
+@end(code)
+
+When verification finds problems, zick exits 4 and reports each
+problem class under @c(verification-results):
+
+@begin[lang=nrdl](code)
+{
+    result package-found
+    status verification-failed
+    verification-results {
+        checksum-discrepancy [
+            {
+                path "bin/tool"
+                source-checksum "9f86d081884c7d659a2feaa0c55ad015a"
+                target-checksum "a3bf4f1b2b0b822c2ad5023b9c5b7f8d1a"
+            }
+        ]
+        file-missing [
+            {
+                path "lib/mylib.lisp"
+            }
+        ]
+    }
+}
+@end(code)
+
+The possible result keys are @c(file-missing),
+@c(size-discrepancy), @c(checksum-discrepancy),
+@c(config-file-missing), @c(path-not-file), and
+@c(path-not-directory).
+
+When the package is not installed, zick exits 3 with
+@c(status package-not-found).
+
+@end(section)
+
+@begin(section)
+@title(help)
+
+@c(zick help) (or @c(-h)/@c(--help)) prints the CLIFF help page: how
+options are gathered, the alias table, the detected defaults, and the
+list of subcommands.  @c(zick) with no subcommand prints a short usage
+summary instead.
+
+@end(section)
 
 @end(section)

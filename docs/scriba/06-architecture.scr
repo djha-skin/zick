@@ -2,7 +2,232 @@
 
 @title(Architecture)
 
-This page explains how zick is put together.  Content lands here in
-the reference bead.
+This page explains how zick is put together: the layout of the project,
+the shape of the store, the lifecycle of a package, and how zick pairs
+with the dependency resolver.
+
+@begin(section)
+@title(Project Layout)
+
+zick is a Common Lisp port of @link[uri="https://github.com/djhaskin987/zic"](zic),
+and its source files mirror zic's Clojure modules one for one:
+
+@begin(list)
+@item(@c(src/main.lisp) — the CLI entry point.  Uses
+@link[uri="https://github.com/djha-skin/cliff"](CLIFF) for argument
+parsing, config files, environment variables, and subcommand dispatch;
+each subcommand function calls into the package layer and returns a
+hash table CLIFF prints as an NRDL document.)
+@item(@c(src/session.lisp) — database sessions and the zick lock file.
+The "connection" is the NRDL store slurped from disk; the lock is a
+plain lock file whose very existence is the lock.)
+@item(@c(src/db.lisp) — the store: FSet persistent records serialized
+as a single NRDL document, plus the queries and mutations over them.)
+@item(@c(src/package.lisp) — package install, removal, upgrade, and
+verification on top of the session and db layers.)
+@item(@c(src/fs.lisp) — filesystem and archive helpers: zip reading,
+SHA-256 and CRC-32 checksums, downloads, unpacking, and the marking
+file search.)
+@end(list)
+
+The CLI itself is data-driven: @c(main) hands CLIFF a table of
+subcommand names to functions, a default function, defaults for the
+options, and a @c(setup) function that derives the database connection
+string, project root, staging path, and lock path from the marking
+file.  CLIFF handles the rest — config files, environment variables,
+aliases, output.
+
+@end(section)
+
+@begin(section)
+@title(Finding the Project)
+
+A zick project is marked by a directory named @c(.zick-db) somewhere at
+or above the start directory (which defaults to the current working
+directory, or is given with @c(-d)).  zick walks up the directory tree
+looking for it; the first match names the project root.
+
+For compatibility, a legacy @c(.zic-db) directory is accepted with a
+warning printed to standard error.
+
+From the marking directory, the setup function derives everything else:
+
+@begin(list)
+@item(@c(db-connection-string) — the @c(.zick-db) directory itself, the
+"connection" to the store)
+@item(@c(root-path) — the parent of the marking directory, where
+package files live)
+@item(@c(staging-path) — a @c(.staging) directory under the root, where
+archives are downloaded before unpacking)
+@item(@c(lock-path) — a @c(.zick.lock) file under the root)
+@end(list)
+
+@end(section)
+
+@begin(section)
+@title(The Store)
+
+The store is a single NRDL document, @c(packages.nrdl), inside the
+@c(.zick-db) directory.  It holds two maps:
+
+@begin(list)
+@item(@c(packages) — package name to package record.  A package record
+has a name, version, location (the archive URL), metadata (an FSet map,
+honored for its @c(zick) key), whether it is a source package, and the
+set of packages it depends on.)
+@item(@c(files) — path to file record.  A file record has a path, size,
+class (@c(normal-file), @c(config-file), or @c(ghost-file)), an SHA-256
+checksum, and the name of the package that owns it.)
+@end(list)
+
+Values live in FSet land throughout — the store, its maps, sets, and
+seqs are persistent FSet structures.  Conversion happens only at the
+I/O boundary: reading parses the NRDL document back into FSet
+structures (NRDL emits sets, seqs, and maps natively), and writing
+serializes the records directly.
+
+The store is read and written whole: a session slurps the document,
+the package layer transforms it, and the session saves whatever store
+its thunk returns.  Saves are atomic — a temp file is written and
+renamed over the target.  @c(zick init) creates the store up front;
+commands run without @c(init) create it on demand the first time they
+open it.
+
+@end(section)
+
+@begin(section)
+@title(Sessions and Locking)
+
+Every mutation runs inside a zick session (@c(with-zick-session)),
+which takes the lock and then opens the database, so that concurrent
+zick processes serialize on the lock before either reads the store.
+
+The lock is a lock file:acquiring it is creating @c(.zick.lock) atomically (with exclusive-create semantics), and releasing it is
+deleting the file.  If another zick process holds the lock, zick
+signals a descriptive error.  Because the lock is the file's
+existence, a process killed with @c(SIGKILL) leaves a stale lock file
+behind; remove it manually to recover.
+
+zick only needs to coordinate with other zick processes, so this
+advisory lock file is all that is required — no OS-level file lock.
+
+@end(section)
+
+@begin(section)
+@title(The Package Lifecycle)
+
+@begin(section)
+@title(Install)
+
+@c(zick add) with downloading enabled (the default) proceeds as
+follows:
+
+@begin(enum)
+@item(Download.  The archive at the package location is fetched into
+the @c(.staging) directory.  Per-host authorizations (basic, header,
+or bearer-token) and TLS verification are honored as configured.  The
+archive is opened and its CRC-32s are checked; a zip with CRC
+violations is refused.)
+@item(Check conflicts.  Every non-directory entry must not already be
+owned by another package; if it is, install signals an error.)
+@item(Decide configuration fate.  Files listed under the metadata's
+@c(zick) @c(config-files) key are compared against what is installed
+and what is on disk.  A config file not yet on disk is installed; one
+already on disk with no installed version to compare against is put
+aside (written as @c(path.PKG.VER.new)); a config unchanged by the
+upgrade keeps its current contents.)
+@item(Unpack.  The archive's entries are written into the project
+root.  Files put aside land under unique paths, and excluded files are
+not written.)
+@item(Record.  The package and every unpacked file (path, size, class,
+checksum, owner) are added to the store, along with the package's
+dependency edges.)
+@end(enum)
+
+With @c(-W) (downloading disabled), the package is recorded from its
+options alone: no network, no unpacking, no files.
+
+@end(section)
+
+@begin(section)
+@title(Upgrade)
+
+Re-adding a package that is already installed upgrades it: the old
+files are removed, configuration files are handled by the
+configuration-fate logic above (with the old config's checksum
+preserved so unchanged configs survive), and the store is updated in
+place.  Replacing a package with a version that compares equal counts
+as an in-place replacement, and re-adding at a lower version counts as
+a downgrade; both are errors unless the corresponding option
+(@c(-i)/@c(--enable-allow-inplace), @c(-g)/@c(--enable-allow-downgrades))
+is enabled.  Version comparison is Debian-style.
+
+@end(section)
+
+@begin(section)
+@title(Verify)
+
+@c(zick verify) checks the files on disk against the store.  Normal
+files must exist, have the recorded size, and hash to the recorded
+SHA-256.  Configuration files must exist.  Ghost files must not be
+present.  Each failing file is grouped by the kind of failure:
+@c(file-missing), @c(size-discrepancy), @c(checksum-discrepancy),
+@c(config-file-missing), @c(path-not-file), or
+@c(path-not-directory).
+
+@c(verify) is how zick earns its keep in a checkout or a deployment:
+a @c(git clean), a partial restore, or a bad deploy shows up as a
+non-zero exit with an exact list of what is wrong.
+
+@end(section)
+
+@begin(section)
+@title(Remove)
+
+@c(zick remove) deletes the files a package owns (backing up its
+configuration files to @c(path.PKG.VER.backup)) and removes its record
+and dependency edges.  Removing a package others depend on is an error
+unless @c(-c)/@c(--enable-cascade) is given, in which case the
+dependent packages are removed too, sinks first (a package nothing
+depends on is removed before the packages that depend on it).  With
+@c(-r)/@c(--enable-dry-run), the removal is computed and reported
+without touching the tree or the store.
+
+@end(section)
+
+@begin(section)
+@title(Orphans)
+
+The orphaned packages are the source nodes of the dependency graph:
+the installed packages that nothing depends on.  @c(zick orphans)
+reports them, and they are what a cascade removal starts from.
+
+@end(section)
+
+@end(section)
+
+@begin(section)
+@title(Pairing with the Resolver)
+
+zick and @link[uri="https://github.com/djha-skin/dsolv"](dsolv) are
+independent tools with complementary architectures:
+
+@begin(list)
+@item(dsolv is a generic dependency resolver: it reads a repository of
+cards describing versions and requirements, and returns the exact set
+of versions a build needs — the URLs of the files to download.)
+@item(zick is a package installer: it downloads those URLs, unpacks
+them into the project tree, tracks the files it owns, and verifies
+them on disk.)
+@end(list)
+
+In a build the two fit together like this: dsolv resolves which
+versions are needed and hands zick the URLs; zick fetches those exact
+archives, installs them, and proves they are intact.  zick has no
+opinion about version selection — it takes the versions it is given —
+and dsolv has no opinion about file layout — it returns locations.
+That division keeps each tool small and lets them be used separately.
+
+@end(section)
 
 @end(section)

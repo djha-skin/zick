@@ -2,7 +2,187 @@
 
 @title(Recipes)
 
-This page collects short how-tos.  Content lands here in the
-reference bead.
+Short how-tos for common things you can do with zick.  Each recipe
+assumes you are inside a zick project (one with a @c(.zick-db)
+directory at or above your current directory); run @c(zick init)
+first if you do not have one.
+
+@begin(section)
+@title(Pinning a Version)
+
+Install a specific version of a package from its archive URL:
+
+@begin[lang=sh](code)
+zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
+@end(code)
+
+The version is recorded verbatim in the store, and @c(zick verify)
+checks the installed files against the recorded checksums — so the
+pinned version stays pinned until you upgrade it.
+
+@end(section)
+
+@begin(section)
+@title(Installing a Package with a Dependency)
+
+Declare that one package depends on another with @c(-u).  The dependee
+must already be installed:
+
+@begin[lang=sh](code)
+zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
+zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
+@end(code)
+
+@c(zick dependers -k mylib) now reports @c(myapp), and @c(zick remove
+-k mylib) refuses to remove it unless you pass @c(-c) to cascade.
+
+@end(section)
+
+@begin(section)
+@title(Upgrading a Package)
+
+Re-add the package with the new version.  zick removes the old files,
+puts changed configuration files aside, and keeps unchanged ones:
+
+@begin[lang=sh](code)
+zick add -k mylib -V 1.3.0 -l https://example.com/mylib-1.3.0.zip
+@end(code)
+
+If the new version compares equal to the installed one, zick treats it
+as an in-place replacement and errors unless you pass
+@c(-i)/@c(--enable-allow-inplace).  Re-adding at a lower version is a
+downgrade and errors unless you pass @c(-g)/@c(--enable-allow-downgrades).
+
+@end(section)
+
+@begin(section)
+@title(Verifying an Install After a Restore)
+
+After a @c(git clean), a restore from backup, or a fresh checkout,
+check that the files on disk still match the store:
+
+@begin[lang=sh](code)
+zick verify -k mylib
+@end(code)
+
+Exits 0 when everything matches, 3 when the package is not installed,
+and 4 when verification finds problems — printing the failing files
+grouped by failure kind.  Run @c(zick verify) for every installed
+package, or re-add each package to repair the tree.
+
+@end(section)
+
+@begin(section)
+@title(Recording Metadata Without Downloading)
+
+Record a package from its options alone, without touching the network
+or the project tree:
+
+@begin[lang=sh](code)
+zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip -W
+@end(code)
+
+@c(-W) (download disabled) is useful for recording metadata-only
+records, or for tests that exercise the store without network access.
+The package will have no files until you re-add it with downloading
+enabled.
+
+@end(section)
+
+@begin(section)
+@title(Declaring Configuration Files)
+
+Tell zick which files a package installs are configuration — files a
+local edit might change, which upgrades should preserve rather than
+clobber.  Pass JSON metadata on the command line:
+
+@begin[lang=sh](code)
+zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip \
+    -m '{"zick": {"config-files": ["etc/myapp.conf"]}}'
+@end(code)
+
+zick records such files as @c(config-file) rather than
+@c(normal-file): verification only checks that they exist, removal
+backs them up (as @c(myapp.0.1.0.backup)) before deleting them, and
+upgrades put changed ones aside rather than overwriting your edits.
+
+@end(section)
+
+@begin(section)
+@title(Removing a Package and Its Dependents)
+
+Remove a package, cascading to the packages that depend on it (sinks
+first), with @c(-c):
+
+@begin[lang=sh](code)
+zick remove -k mylib -c
+@end(code)
+
+Preview the removal without touching anything:
+
+@begin[lang=sh](code)
+zick remove -k mylib -c -r
+@end(code)
+
+The result lists every package that would be removed.
+
+@end(section)
+
+@begin(section)
+@title(Finding Cruft)
+
+List the installed packages that nothing depends on — a good place to
+look when pruning a project:
+
+@begin[lang=sh](code)
+zick orphans
+@end(code)
+
+Each reported package is a source node of the dependency graph: nothing
+installed depends on it.
+
+@end(section)
+
+@begin(section)
+@title(Using zick in CI)
+
+A reproducible install step for a checkout in CI looks like this:
+
+@begin[lang=sh](code)
+zick init
+zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
+zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
+zick verify -k myapp
+@end(code)
+
+Because every @c(add) records the files it installed and every
+@c(verify) checks them against the store, the step is repeatable and
+auditable: the same commands produce the same tree, and a partial or
+corrupt install fails the build with a precise report.
+
+@end(section)
+
+@begin(section)
+@title(Installing What a Resolver Picked)
+
+When zick is paired with a dependency resolver, the resolver decides
+which versions a build needs and returns their URLs; zick installs
+exactly those archives:
+
+@begin[lang=sh](code)
+# resolver picks versions and prints locations, e.g.:
+# mylib 1.2.0 https://example.com/mylib-1.2.0.zip
+# myapp 0.1.0 https://example.com/myapp.zip
+
+zick init
+zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
+zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
+zick verify -k myapp
+@end(code)
+
+zick takes the versions it is given and has no opinion about version
+selection, so the two tools compose cleanly in a build.
+
+@end(section)
 
 @end(section)
