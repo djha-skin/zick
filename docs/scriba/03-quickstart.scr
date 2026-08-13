@@ -21,7 +21,7 @@ zick init
 @c(zick init) creates the @c(.zick-db) marking directory and the
 store.  zick finds the project by walking up from wherever you run it,
 looking for that directory — so from now on, running zick anywhere
-inside @c(my-project) (or below it) talks to this project.
+inside @c(my-project) — or below it — talks to this project.
 
 @end(section)
 
@@ -47,8 +47,8 @@ size, and SHA-256 checksum — in the store.  Success looks like:
 }
 @end(code)
 
-Declare that one package depends on another with @c(-u) (the dependee
-must already be installed):
+Declare that one package depends on another with @c(-u): the dependee
+must already be installed.
 
 @begin[lang=sh](code)
 zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib

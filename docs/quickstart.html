@@ -59,7 +59,7 @@ zick init
 </code></pre><p><code>zick init</code> creates the <code>.zick-db</code> marking directory and the
 store.  zick finds the project by walking up from wherever you run it,
 looking for that directory — so from now on, running zick anywhere
-inside <code>my-project</code>(or below it) talks to this project.</p><h1 id="install-a-package">Install a Package</h1><p>A package is a zip archive at a URL.  Install one with <code>zick add</code>,
+inside <code>my-project</code> — or below it — talks to this project.</p><h1 id="install-a-package">Install a Package</h1><p>A package is a zip archive at a URL.  Install one with <code>zick add</code>,
 naming it with <code>-k</code>, versioning it with <code>-V</code>, and locating it with
 <code>-l</code>:</p><pre><code class="sh">zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip
 </code></pre><p>zick downloads the archive into a staging area, unpacks it into the
@@ -68,8 +68,8 @@ size, and SHA-256 checksum — in the store.  Success looks like:</p><pre><code 
     result successful
     status successful
 }
-</code></pre><p>Declare that one package depends on another with <code>-u</code>(the dependee
-must already be installed):</p><pre><code class="sh">zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
+</code></pre><p>Declare that one package depends on another with <code>-u</code>: the dependee
+must already be installed.</p><pre><code class="sh">zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
 </code></pre><p><code>-W</code> skips the download and records the package without unpacking
 its files — useful for metadata-only records, or for following along
 offline.  (The archive URLs in this tour are examples; substitute

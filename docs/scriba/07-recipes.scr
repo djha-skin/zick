@@ -82,7 +82,7 @@ or the project tree:
 zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip -W
 @end(code)
 
-@c(-W) (download disabled) is useful for recording metadata-only
+@c(-W) — download disabled — is useful for recording metadata-only
 records, or for tests that exercise the store without network access.
 A @c(-W) record has no files; to install them later, re-add the
 package with downloading enabled — passing

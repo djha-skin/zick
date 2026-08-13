@@ -112,7 +112,7 @@ upgrade keeps its current contents.</li><li>Unpack.  The archive's entries are w
 root.  Files put aside land under unique paths, and excluded files are
 not written.</li><li>Record.  The package and every unpacked file (path, size, class,
 checksum, owner) are added to the store, along with the package's
-dependency edges.</li></ol><p>With <code>-W</code>(downloading disabled), the package is recorded from its
+dependency edges.</li></ol><p>With <code>-W</code> — downloading disabled — the package is recorded from its
 options alone: no network, no unpacking, no files.</p><h2 id="upgrade">Upgrade</h2><p>Re-adding a package that is already installed upgrades it: the old
 files are removed, configuration files are handled by the
 configuration-fate logic above (with the old config's checksum

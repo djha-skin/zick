@@ -57,8 +57,8 @@ program.  Every option can be given through three channels, in order of
 precedence — configuration files, environment variables, then the command
 line — with later values overriding earlier ones.</p><p>Configuration files live in three places, each overriding the one before it:</p><ul><li>A system-wide file: <code>/etc/zick/config.nrdl</code> on Linux/POSIX,
 <code>/Library/Preferences/zick/config.nrdl</code> on macOS, and
-<code>%PROGRAMDATA%\zick\config.nrdl</code> on Windows</li><li>A per-user file: <code>${XDG_CONFIG_HOME}/zick/config.nrdl</code>(by
-default <code>~/.config/zick/config.nrdl</code>) on Linux/POSIX,
+<code>%PROGRAMDATA%\zick\config.nrdl</code> on Windows</li><li>A per-user file: <code>${XDG_CONFIG_HOME}/zick/config.nrdl</code> — by
+default <code>~/.config/zick/config.nrdl</code> — on Linux/POSIX,
 <code>~/Library/Preferences/zick/config.nrdl</code> on macOS, and
 <code>%LOCALAPPDATA%\zick\config.nrdl</code> on Windows</li><li>A project file named <code>.zick.nrdl</code> in the directory zick is run
 from, or any of its parents</li></ul><p>Every option also has an environment variable, named
@@ -74,7 +74,7 @@ lists, <code>--reset-&lt;option&gt;</code> to restore a default, and the
 values.  Short aliases are listed per subcommand below.</p><h1 id="common-options">Common Options</h1><p>Two options apply to every subcommand:</p><ul><li><code>-d</code>/<code>--set-start-directory</code> — the directory to start the
 zick search from.  Defaults to the current working directory.  zick
 walks up from here looking for the <code>.zick-db</code> marking directory that
-names the project's database.</li><li><code>--set-output-format</code> — <code>&quot;nrdl&quot;</code>(the default) or <code>&quot;json&quot;</code>.
+names the project's database.</li><li><code>--set-output-format</code> — <code>&quot;nrdl&quot;</code> — the default — or <code>&quot;json&quot;</code>.
 Controls the format of the emitted result document.</li></ul><p>The defaults for the remaining options are shown on the <code>zick help</code>
 page under &quot;The following options have been detected&quot;:
 <code>cascade false</code>, <code>download-package true</code>, <code>dry-run false</code>,
@@ -90,9 +90,9 @@ and records the package and the files it owns in the store.</p><ul><li><code>-k<
 Required.</li><li><code>-u</code>/<code>--add-package-dependency</code> — a dependency on another
 installed package, by name.  May be given more than once.  The
 dependee must already be installed.</li><li><code>-m</code>/<code>--set-package-metadata</code> — a JSON string of extra
-metadata, honored for its <code>zick</code> key: <code>config-files</code>(paths to
-treat as configuration files) and <code>ghost-files</code>(paths to record
-without writing).</li><li><code>--json-download-authorizations</code> — a JSON string mapping hosts
+metadata, honored for its <code>zick</code> key: <code>config-files</code> — paths to
+treat as configuration files — and <code>ghost-files</code> — paths to record
+without writing.</li><li><code>--json-download-authorizations</code> — a JSON string mapping hosts
 to authorization records (<code>type</code> of <code>&quot;basic&quot;</code>, <code>&quot;header&quot;</code>, or
 <code>&quot;oauth-token&quot;</code>), used when downloading the archive.</li><li><code>-W</code>/<code>--disable-download-package</code> and
 <code>-w</code>/<code>--enable-download-package</code> — whether to download and unpack
@@ -222,7 +222,7 @@ problem class under <code>verification-results</code>:</p><pre><code class="nrdl
 <code>size-discrepancy</code>, <code>checksum-discrepancy</code>,
 <code>config-file-missing</code>, <code>path-not-file</code>, and
 <code>path-not-directory</code>.</p><p>When the package is not installed, zick exits 3 with
-<code>status package-not-found</code>.</p><h1 id="help">help</h1><p><code>zick help</code>(or <code>-h</code>/<code>--help</code>) prints the CLIFF help page: how
+<code>status package-not-found</code>.</p><h1 id="help">help</h1><p><code>zick help</code> — or <code>-h</code>/<code>--help</code> — prints the CLIFF help page: how
 options are gathered, the alias table, the detected defaults, and the
 list of subcommands.  <code>zick</code> with no subcommand prints a short usage
 summary instead.</p>

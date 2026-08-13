@@ -60,7 +60,7 @@ system, CLIFF-based entry point, Roswell script, Makefile, and ocicl
 dependency pinning.</li></ul><p>Fixed:</p><ul><li>NRDL output: command results that carry a collection (files,
 dependers, dependees, removed packages, packages, orphans, verification
 results) now emit FSet seqs, so an empty collection renders as <code>[]</code>
-instead of <code>false</code>(NRDL maps nil, the empty CL list, to false).  Notably,
+instead of <code>false</code>, since NRDL maps nil, the empty CL list, to false.  Notably,
 <code>zick orphans</code> on a store with no orphans previously printed
 <code>orphaned-packages false</code>.</li><li><code>zick add -m</code> JSON metadata: NRDL reads JSON object keys back as
 case-preserved keywords (e.g. <code>:|zick|</code>), which the metadata
@@ -71,14 +71,15 @@ uppercase keywords (<code>:zick</code>/<code>:config-files</code>).</li><li>Smok
 ironclad, downloads via dexador/quri, and <code>.zick-db</code> marking-file search,
 with a Parachute test suite (60 assertions).</li><li>Port of <code>zic.db</code>: the package/file store as FSet persistent records
 (<code>package-record</code>/<code>file</code>/<code>store</code>) serialized to a single NRDL document
-via <code>slurp-store</code>/<code>save-store</code>(atomic temp + rename), with the full
+via <code>slurp-store</code>/<code>save-store</code> — atomic temp + rename — with the full
 query and mutation API (package-id, package-info, package-files, owned-by-p,
 dependers/dependees, add-package, insert-file/use, remove-package/files/uses)
-and a Parachute test suite (82 assertions).</li><li>Port of <code>zic.session</code>: <code>with-zick-session</code>(lock first, then open
-the database), <code>with-database</code>(slurp/save the NRDL store at
-<code>.zick-db/packages.nrdl</code>), <code>with-filelock</code>(a lock file whose existence
-is the lock, created atomically and removed on close, with zic's descriptive
-error text adapted to zick), and <code>path-to-connection-string</code>, with a
+and a Parachute test suite (82 assertions).</li><li>Port of <code>zic.session</code>: <code>with-zick-session</code> locks first, then opens
+the database; <code>with-database</code> slurps/saves the NRDL store at
+<code>.zick-db/packages.nrdl</code>; <code>with-filelock</code> uses a lock file whose
+existence is the lock, created atomically and removed on close, with zic's
+descriptive error text adapted to zick; and <code>path-to-connection-string</code>,
+with a
 Parachute test suite (18 assertions) including a cross-process
 lock-contention test.</li><li>Black-box test environment: a python3 HTTPS fixture server with a
 self-signed certificate (optional basic auth, user <code>mode</code> password
@@ -100,8 +101,8 @@ the insecure flag (by recording dexador:get's arguments); the store
 serialization round-trip now also asserts package metadata and file classes
 survive NRDL save/load; and the black-box <code>test-add</code> verifies the recorded
 package end to end via <code>info</code> and <code>files</code> on a fresh database.</li><li>CLI download authorizations: <code>zick add</code> accepts
-<code>--json-download-authorizations</code>(per-host <code>basic</code>/<code>header</code>/
-<code>oauth-token</code> records, parsed with NRDL into <code>fs:download</code>'s auth table),
+<code>--json-download-authorizations</code> — per-host <code>basic</code>/<code>header</code>/
+<code>oauth-token</code> records, parsed with NRDL into <code>fs:download</code>'s auth table —
 and <code>-n</code>/<code>--enable-insecure</code> reaches the HTTP client for self-signed
 fixtures.  CLI subcommand functions renamed to standard Common Lisp names
 (<code>add-command</code>, <code>files-command</code>, ...; no <code>!</code> suffix), per the style
@@ -110,10 +111,10 @@ NRDL store, with config-file upgrade precautions (install/put-aside/
 do-nothing fates and in-place and downgrade guards via svers' debian-vercmp),
 zip-based installs via zippy, dependency-aware removal (cascade vs refuse,
 dry-run, sink-first linearization), file-conflict and checksum verification,
-and the package query API, with a Parachute test suite (71 assertions).</li><li>Port of <code>zic.cli</code>(<code>src/main.lisp</code>): the <code>zick</code> command line via
+and the package query API, with a Parachute test suite (71 assertions).</li><li>Port of <code>zic.cli</code>, from <code>src/main.lisp</code>: the <code>zick</code> command line via
 CLIFF with subcommands <code>add</code>, <code>files</code>, <code>info</code>, <code>init</code>, <code>remove</code>,
-<code>dependers</code>, <code>dependees</code>, and <code>verify</code>(plus <code>list</code> and
-<code>orphans</code>), the zic short aliases, NRDL output, verify exit codes 3
+<code>dependers</code>, <code>dependees</code>, and <code>verify</code> — plus <code>list</code> and
+<code>orphans</code> — the zic short aliases, NRDL output, verify exit codes 3
 (package not found) and 4 (verification failures), JSON package metadata for
 <code>-m</code> parsed with NRDL, and the deprecated <code>.zic-db</code> marking-file fallback
 (with a warning); <code>cl-json</code> dropped in favor of NRDL's JSON superset

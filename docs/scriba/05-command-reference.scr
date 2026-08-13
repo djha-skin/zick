@@ -20,8 +20,8 @@ Configuration files live in three places, each overriding the one before it:
 @item(A system-wide file: @c(/etc/zick/config.nrdl) on Linux/POSIX,
 @c(/Library/Preferences/zick/config.nrdl) on macOS, and
 @c(%PROGRAMDATA%\zick\config.nrdl) on Windows)
-@item(A per-user file: @c(${XDG_CONFIG_HOME}/zick/config.nrdl) (by
-default @c(~/.config/zick/config.nrdl)) on Linux/POSIX,
+@item(A per-user file: @c(${XDG_CONFIG_HOME}/zick/config.nrdl) — by
+default @c(~/.config/zick/config.nrdl) — on Linux/POSIX,
 @c(~/Library/Preferences/zick/config.nrdl) on macOS, and
 @c(%LOCALAPPDATA%\zick\config.nrdl) on Windows)
 @item(A project file named @c(.zick.nrdl) in the directory zick is run
@@ -64,7 +64,7 @@ Two options apply to every subcommand:
 zick search from.  Defaults to the current working directory.  zick
 walks up from here looking for the @c(.zick-db) marking directory that
 names the project's database.)
-@item(@c(--set-output-format) — @c("nrdl") (the default) or @c("json").
+@item(@c(--set-output-format) — @c("nrdl") — the default — or @c("json").
 Controls the format of the emitted result document.)
 @end(list)
 
@@ -114,9 +114,9 @@ Required.)
 installed package, by name.  May be given more than once.  The
 dependee must already be installed.)
 @item(@c(-m)/@c(--set-package-metadata) — a JSON string of extra
-metadata, honored for its @c(zick) key: @c(config-files) (paths to
-treat as configuration files) and @c(ghost-files) (paths to record
-without writing).)
+metadata, honored for its @c(zick) key: @c(config-files) — paths to
+treat as configuration files — and @c(ghost-files) — paths to record
+without writing.)
 @item(@c(--json-download-authorizations) — a JSON string mapping hosts
 to authorization records (@c(type) of @c("basic"), @c("header"), or
 @c("oauth-token")), used when downloading the archive.)
@@ -410,7 +410,7 @@ When the package is not installed, zick exits 3 with
 @begin(section)
 @title(help)
 
-@c(zick help) (or @c(-h)/@c(--help)) prints the CLIFF help page: how
+@c(zick help) — or @c(-h)/@c(--help) — prints the CLIFF help page: how
 options are gathered, the alias table, the detected defaults, and the
 list of subcommands.  @c(zick) with no subcommand prints a short usage
 summary instead.

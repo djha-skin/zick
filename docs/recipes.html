@@ -72,7 +72,7 @@ and 4 when verification finds problems — printing the failing files
 grouped by failure kind.  Run <code>zick verify</code> for every installed
 package, or re-add each package to repair the tree.</p><h1 id="recording-metadata-without-downloading">Recording Metadata Without Downloading</h1><p>Record a package from its options alone, without touching the network
 or the project tree:</p><pre><code class="sh">zick add -k mylib -V 1.2.0 -l https://example.com/mylib-1.2.0.zip -W
-</code></pre><p><code>-W</code>(download disabled) is useful for recording metadata-only
+</code></pre><p><code>-W</code> — download disabled — is useful for recording metadata-only
 records, or for tests that exercise the store without network access.
 A <code>-W</code> record has no files; to install them later, re-add the
 package with downloading enabled — passing

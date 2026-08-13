@@ -144,7 +144,7 @@ checksum, owner) are added to the store, along with the package's
 dependency edges.)
 @end(enum)
 
-With @c(-W) (downloading disabled), the package is recorded from its
+With @c(-W) — downloading disabled — the package is recorded from its
 options alone: no network, no unpacking, no files.
 
 @end(section)

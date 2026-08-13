@@ -28,7 +28,7 @@ Fixed:
 @item(NRDL output: command results that carry a collection (files,
 dependers, dependees, removed packages, packages, orphans, verification
 results) now emit FSet seqs, so an empty collection renders as @c([])
-instead of @c(false) (NRDL maps nil, the empty CL list, to false).  Notably,
+instead of @c(false), since NRDL maps nil, the empty CL list, to false.  Notably,
 @c(zick orphans) on a store with no orphans previously printed
 @c(orphaned-packages false).)
 @item(@c(zick add -m) JSON metadata: NRDL reads JSON object keys back as
@@ -43,15 +43,16 @@ ironclad, downloads via dexador/quri, and @c(.zick-db) marking-file search,
 with a Parachute test suite (60 assertions).)
 @item(Port of @c(zic.db): the package/file store as FSet persistent records
 (@c(package-record)/@c(file)/@c(store)) serialized to a single NRDL document
-via @c(slurp-store)/@c(save-store) (atomic temp + rename), with the full
+via @c(slurp-store)/@c(save-store) — atomic temp + rename — with the full
 query and mutation API (package-id, package-info, package-files, owned-by-p,
 dependers/dependees, add-package, insert-file/use, remove-package/files/uses)
 and a Parachute test suite (82 assertions).)
-@item(Port of @c(zic.session): @c(with-zick-session) (lock first, then open
-the database), @c(with-database) (slurp/save the NRDL store at
-@c(.zick-db/packages.nrdl)), @c(with-filelock) (a lock file whose existence
-is the lock, created atomically and removed on close, with zic's descriptive
-error text adapted to zick), and @c(path-to-connection-string), with a
+@item(Port of @c(zic.session): @c(with-zick-session) locks first, then opens
+the database; @c(with-database) slurps/saves the NRDL store at
+@c(.zick-db/packages.nrdl); @c(with-filelock) uses a lock file whose
+existence is the lock, created atomically and removed on close, with zic's
+descriptive error text adapted to zick; and @c(path-to-connection-string),
+with a
 Parachute test suite (18 assertions) including a cross-process
 lock-contention test.)
 @item(Black-box test environment: a python3 HTTPS fixture server with a
@@ -78,8 +79,8 @@ serialization round-trip now also asserts package metadata and file classes
 survive NRDL save/load; and the black-box @c(test-add) verifies the recorded
 package end to end via @c(info) and @c(files) on a fresh database.)
 @item(CLI download authorizations: @c(zick add) accepts
-@c(--json-download-authorizations) (per-host @c(basic)/@c(header)/
-@c(oauth-token) records, parsed with NRDL into @c(fs:download)'s auth table),
+@c(--json-download-authorizations) — per-host @c(basic)/@c(header)/
+@c(oauth-token) records, parsed with NRDL into @c(fs:download)'s auth table —
 and @c(-n)/@c(--enable-insecure) reaches the HTTP client for self-signed
 fixtures.  CLI subcommand functions renamed to standard Common Lisp names
 (@c(add-command), @c(files-command), ...; no @c(!) suffix), per the style
@@ -90,10 +91,10 @@ do-nothing fates and in-place and downgrade guards via svers' debian-vercmp),
 zip-based installs via zippy, dependency-aware removal (cascade vs refuse,
 dry-run, sink-first linearization), file-conflict and checksum verification,
 and the package query API, with a Parachute test suite (71 assertions).)
-@item(Port of @c(zic.cli) (@c(src/main.lisp)): the @c(zick) command line via
+@item(Port of @c(zic.cli), from @c(src/main.lisp): the @c(zick) command line via
 CLIFF with subcommands @c(add), @c(files), @c(info), @c(init), @c(remove),
-@c(dependers), @c(dependees), and @c(verify) (plus @c(list) and
-@c(orphans)), the zic short aliases, NRDL output, verify exit codes 3
+@c(dependers), @c(dependees), and @c(verify) — plus @c(list) and
+@c(orphans) — the zic short aliases, NRDL output, verify exit codes 3
 (package not found) and 4 (verification failures), JSON package metadata for
 @c(-m) parsed with NRDL, and the deprecated @c(.zic-db) marking-file fallback
 (with a warning); @c(cl-json) dropped in favor of NRDL's JSON superset
