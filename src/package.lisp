@@ -37,6 +37,7 @@
     #:get-package-dependees
     #:get-package-dependers
     #:get-orphaned-packages
+    #:get-present-packages
     ;; Downloading
     #:download-package
     ;; Installation
@@ -155,6 +156,14 @@
           (when (null (db:used-somewhere-p store name))
             (db:package-info store name)))
         (:arg :map (db:store-packages store))))))
+
+(defun get-present-packages (options)
+  "Return the presented info of all packages of the project at
+   :DB-CONNECTION-STRING, sorted by name."
+  (session:with-database
+    (getf options :db-connection-string)
+    (lambda (store)
+      (db:present-packages store))))
 
 ;;; Downloading
 

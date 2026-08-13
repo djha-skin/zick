@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `zick list` subcommand: prints every installed package with its
+  version, sorted by name.  An empty database prints nothing and
+  exits 0.
 - `zick orphans` subcommand: lists the installed packages that nothing
   depends on (the source nodes of the dependency graph).  Installing a
   package that depends on another and then removing the depender leaves

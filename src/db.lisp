@@ -52,6 +52,7 @@
     #:package-id
     #:package-info
     #:package-info-by-id
+    #:present-packages
     #:package-files
     #:owned-by-p
     #:dependers-by-id
@@ -243,6 +244,17 @@
 (defun package-info (store package-name)
   "Return the presented info of the package named PACKAGE-NAME."
   (package-info-by-id store (package-id store package-name)))
+
+(defun present-packages (store)
+  "Return the presented info of all packages in STORE, sorted by
+   name."
+  (sort
+    (gmap:gmap (:result list)
+      (lambda (name pkg)
+        (declare (ignore name))
+        (present-package pkg))
+      (:arg :map (store-packages store)))
+    #'string< :key (lambda (info) (getf info :name))))
 
 (defun package-files (store pkg-id)
   "Return the presented files installed by package PKG-ID."

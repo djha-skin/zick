@@ -191,6 +191,19 @@
     (true (db:used-somewhere-p store "c"))
     (true (null (db:used-somewhere-p store "b")))))
 
+(define-test present-packages
+  :parent nil
+  "present-packages returns the presented info of every package,
+   sorted by name."
+  (let ((infos (db:present-packages (sample-store))))
+    ;; The store is built in the order a, c, b, so the reported
+    ;; a, b, c order proves name sorting.
+    (is = 3 (length infos))
+    (is equal '("a" "b" "c")
+        (mapcar (lambda (info) (getf info :name)) infos))
+    (is string= "0.1.0" (getf (first infos) :version))
+    (is string= "0.2.0" (getf (second infos) :version))))
+
 (define-test dependers
   :parent nil
   "dependers-by-id and package-dependers list the packages depending

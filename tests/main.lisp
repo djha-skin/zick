@@ -205,6 +205,35 @@
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
 
+(define-test list-reports-installed-packages
+  :parent nil
+  "zick list prints every installed package with its version, sorted
+   by name; an empty database prints nothing and exits 0."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-list")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          ;; An empty database prints nothing and exits 0.
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "list")
+            (is = 0 exit)
+            (is string= "" out))
+          (is = 0 (cli proj "add" "-k" "b" "-V" "0.2.0"
+                       "-l" "https://example.com/b.zip" "-W"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "0.1.0"
+                       "-l" "https://example.com/a.zip" "-W"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "list")
+            (is = 0 exit)
+            (true (search "name \"a\"" out))
+            (true (search "version \"0.1.0\"" out))
+            (true (search "name \"b\"" out))
+            (true (search "version \"0.2.0\"" out))
+            (true (< (search "name \"a\"" out)
+                     (search "name \"b\"" out)))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
 ;;; Missing-argument errors
 
 (define-test query-subcommands-require-package-name

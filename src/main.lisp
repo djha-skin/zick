@@ -331,12 +331,18 @@
         (:result . :successful)))))
 
 (defun list-command (options)
-  "List installed packages.  Not yet implemented (tracked by its own
-   bead)."
-  (declare (ignore options))
-  (alexandria:alist-hash-table
-    `((:status . :successful)
-      (:result . :noop))))
+  "List the installed packages and their versions."
+  (let* ((opts (hash-to-plist options))
+         (packages (pkg:get-present-packages opts)))
+    (if (null packages)
+        (alexandria:alist-hash-table
+          `((:status . :successful)
+            (:result . :successful)
+            (:cliff-suppress-output . t)))
+        (alexandria:alist-hash-table
+          `((:status . :successful)
+            (:result . :successful)
+            (:packages . ,(mapcar #'plist-to-hash packages)))))))
 
 (defun orphans-command (options)
   "List the orphaned packages: the installed packages that nothing
