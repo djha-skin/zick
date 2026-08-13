@@ -11,12 +11,26 @@
 # macOS and Windows legs emit the platform binaries.
 #
 # The release job assembles everything with `gh release create`.
+#
+# Triggered by a v* tag push, or manually from the Actions tab
+# (workflow_dispatch) with the release tag passed as an input.  The
+# version that appears in package names and on the Release page comes
+# from RELEASE_TAG below.
 
 name: release
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, e.g. v0.1.0 (for artifact naming and the Release page)'
+        required: true
+        default: 'v0.1.0'
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -78,12 +92,12 @@ jobs:
           "$GITHUB_WORKSPACE/zick" list
 
       - name: make source tarballs
-        run: bash scripts/make-source-tarball.sh "${GITHUB_REF_NAME#v}"
+        run: bash scripts/make-source-tarball.sh "${RELEASE_TAG#v}"
 
       - name: produce binary package
         run: |
           set -eux
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           mkdir -p pkg/usr/bin
           install -m755 zick pkg/usr/bin/zick
           if [ "${{ matrix.pkg }}" = deb ]; then
@@ -106,7 +120,7 @@ jobs:
         if: matrix.pkg == 'deb'
         run: |
           set -eux
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           mkdir -p /tmp/debsrc
           # dpkg-source looks for the .orig tarball beside the source dir
           # (../zick_${VERSION}.orig.tar.gz), so copy it in.
@@ -123,7 +137,7 @@ jobs:
         if: matrix.pkg == 'rpm'
         run: |
           set -eux
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           mkdir -p ~/rpmbuild/SOURCES ~/rpmbuild/SRPMS
           cp "zick-${VERSION}-src.tar.gz" ~/rpmbuild/SOURCES/
           rpmbuild -bs packaging/zick.spec
@@ -327,7 +341,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${RELEASE_TAG}"
           VERSION="${TAG#v}"
           gh release create "$TAG" \
             artifacts/* \
