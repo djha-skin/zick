@@ -10,7 +10,10 @@
 # hand after a build.
 set -e
 
-BUILD_DIR=docs/build/dsolv-generic-dependency-resolver/html
+# The build directory slug derives from the document title in
+# docs/manifest.lisp (cl-slug:slugify of "zick: Zip-based Package
+# Manager"); keep the title and this path in sync.
+BUILD_DIR=docs/build/zick-zip-based-package-manager/html
 
 cat docs/scriba/*.scr > docs/manual.scr
 ./docs/build-docs.ros

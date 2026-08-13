@@ -1,0 +1,8 @@
+@begin(section)
+
+@title(Command Reference)
+
+This page documents every zick subcommand, its arguments, defaults,
+and aliases.  Content lands here in the reference bead.
+
+@end(section)

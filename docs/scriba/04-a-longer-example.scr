@@ -1,0 +1,8 @@
+@begin(section)
+
+@title(A Longer Example)
+
+This page is a worked end-to-end example, including how zick and
+dsolv are used together.  Content lands here in the tutorial bead.
+
+@end(section)

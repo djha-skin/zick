@@ -17,6 +17,10 @@ __pycache__/
 # Generated documentation build output
 docs/build/
 docs/manual.scr
+# codex's copy-images also emits the overview logo at the html root;
+# the pages reference assets/zick.png, so the top-level copy is cruft
+# (re-created by every update-docs rsync).
+docs/zick.png
 missfont.log
 
 # Built binary and backups

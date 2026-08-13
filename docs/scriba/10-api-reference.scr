@@ -1,0 +1,8 @@
+@begin(section)
+
+@title(API Reference)
+
+This page documents the zick API with @c(@cl:doc).  Content lands
+here in the API and housekeeping bead.
+
+@end(section)

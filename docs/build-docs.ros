@@ -1,0 +1,89 @@
+#!/bin/sh
+#|-*- mode:lisp -*-|#
+#|
+exec ros -R +Q -- $0 "$@"
+|#
+(progn ;;init forms
+  (ros:ensure-asdf)
+  (asdf:load-system "codex")
+  (asdf:load-system "codex-templates")
+  (asdf:load-system "com.djhaskin.zick"))
+
+(defpackage :ros.script.build-docs.3943893088
+  (:use :cl))
+(in-package :ros.script.build-docs.3943893088)
+
+(defparameter *docs-dir*
+  (asdf:system-relative-pathname :com.djhaskin.zick "docs/"))
+
+(defun load-manual ()
+  "Parse docs/manual.scr exactly the way codex:load-document does, so that the
+section references match the ones used in the emitted HTML."
+  (let* ((manual (merge-pathnames #p"manual.scr" *docs-dir*))
+         (codex.markup:*current-markup-format* (pandocl:guess-format manual))
+         (base-doc (codex.markup:parse-string (uiop:read-file-string manual))))
+    (make-instance 'common-doc:document
+                   :title "zick: Zip-based Package Manager"
+                   :children (common-doc:children base-doc))))
+
+(defun section-page-map (doc)
+  "Map every section reference to the reference of the top-level page that
+contains it. Top-level sections map to themselves."
+  (let ((map (make-hash-table :test #'equal)))
+    (labels ((walk (children page)
+               (dolist (child children)
+                 (if (typep child 'common-doc:section)
+                     (let ((ref (common-doc:reference child)))
+                       (setf (gethash ref map) (or page ref))
+                       (walk (common-doc:children child) (or page ref)))
+                     ;; Non-section container nodes (e.g. the content-node scriba
+                     ;; wraps the top level in) are transparent; leaf nodes have
+                     ;; no children to walk.
+                     (when (typep child 'common-doc:content-node)
+                       (walk (common-doc:children child) page))))))
+      (walk (common-doc:children doc) nil))
+    map))
+
+(defun fix-broken-toc-links (html-dir map)
+  "codex emits its multi-html TOC while the section-to-file map is still being
+filled in, so nested sections of pages that are emitted later get linked as
+'<ref>.html' files that do not exist. Rewrite those links to
+'<page>.html#<ref>', pointing at the anchor on the correct page."
+  (flet ((rewrite (text ref page)
+           (cl-ppcre:regex-replace-all
+            (format nil "href=\"~A\\.html\""
+                    (cl-ppcre:quote-meta-chars ref))
+            text
+            (format nil "href=\"~A.html#~A\"" page ref))))
+    (dolist (html-file (directory (merge-pathnames #p"*.html" html-dir)))
+      (let ((text (uiop:read-file-string html-file)))
+        (maphash (lambda (ref page)
+                   (unless (equal ref page)
+                     (setf text (rewrite text ref page))))
+                 map)
+        (with-open-file (stream html-file
+                                :direction :output
+                                :if-exists :supersede
+                                :if-does-not-exist :create)
+          (write-string text stream))))))
+
+(defun main (&rest argv)
+  (declare (ignorable argv))
+  (handler-case
+      (progn
+        (codex:document "com.djhaskin.zick")
+        ;; No macro expansion here on purpose: expanding the manual outside
+        ;; codex:document would need codex.macro:*index*, and the @cl:doc
+        ;; macros only insert docstring content, never sections. The section
+        ;; tree (and hence the refs) is identical either way.
+        (fix-broken-toc-links
+         (merge-pathnames #p"build/zick-zip-based-package-manager/html/"
+                          *docs-dir*)
+         (section-page-map
+          (common-doc.ops:fill-unique-refs (load-manual)))))
+    (error (e)
+      (format *error-output* "~&Build failed: ~A~%" e)
+      (uiop:quit 1))))
+
+(main)
+;;; vim: set ft=lisp lisp:
