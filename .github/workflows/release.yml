@@ -66,6 +66,26 @@ jobs:
       - name: make source tarballs
         run: bash scripts/make-source-tarball.sh "${GITHUB_REF_NAME#v}"
 
+      - name: produce binary package
+        run: |
+          set -eux
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p pkg/usr/bin
+          install -m755 zick pkg/usr/bin/zick
+          if [ "${{ matrix.pkg }}" = deb ]; then
+            fpm -s dir -t deb -n zick -v "$VERSION" -a amd64 -C pkg \
+                --description "A zip-based package manager for Common Lisp systems" \
+                --url "https://github.com/djha-skin/zick" --license MIT \
+                --maintainer "Daniel Jay Haskin <djhaskin987@gmail.com>" .
+            cp zick_*_amd64.deb "$GITHUB_WORKSPACE/"
+          else
+            fpm -s dir -t rpm -n zick -v "$VERSION" -a x86_64 -C pkg \
+                --description "A zip-based package manager for Common Lisp systems" \
+                --url "https://github.com/djha-skin/zick" --license MIT \
+                --maintainer "Daniel Jay Haskin <djhaskin987@gmail.com>" .
+            cp zick-*.x86_64.rpm "$GITHUB_WORKSPACE/"
+          fi
+
       - name: produce source package (deb)
         if: matrix.pkg == 'deb'
         run: |
@@ -103,9 +123,11 @@ jobs:
           name: linux-${{ matrix.name }}
           path: |
             zick-*.src.rpm
+            zick-*.x86_64.rpm
             zick_*.dsc
             zick_*.debian.tar.xz
             zick_*.orig.tar.gz
+            zick_*_amd64.deb
             zick-linux-x86_64.tar.gz
 
   macos:
