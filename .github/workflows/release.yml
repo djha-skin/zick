@@ -274,11 +274,15 @@ jobs:
         shell: bash
         run: |
           # SBCL's Windows executable needs its runtime DLLs next to it.
-          SBCL_BIN="$(dirname "$(which sbcl)")"
+          # `which sbcl` resolves to a Chocolatey shim (bin/sbcl) whose dir
+          # has no DLLs; find the real sbcl.exe in the package dir instead.
           cd "$GITHUB_WORKSPACE"
-          cp "$SBCL_BIN"/libsbcl.dll .
-          cp "$SBCL_BIN"/libgcc_s_seh-1.dll . 2>/dev/null || true
-          cp "$SBCL_BIN"/libwinpthread-1.dll . 2>/dev/null || true
+          SBCL_DIR="$(dirname "$(find /c/ProgramData/chocolatey/lib/sbcl \
+              -iname 'sbcl.exe' 2>/dev/null | head -1)")"
+          echo "SBCL_DIR=$SBCL_DIR"
+          cp "$SBCL_DIR"/libsbcl.dll .
+          cp "$SBCL_DIR"/libgcc_s_seh-1.dll . 2>/dev/null || true
+          cp "$SBCL_DIR"/libwinpthread-1.dll . 2>/dev/null || true
 
       # Smoke test AFTER the DLLs are bundled: zick.exe dies on a missing
       # libsbcl.dll otherwise.
