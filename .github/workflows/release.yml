@@ -263,6 +263,4 @@ jobs:
           gh release create "$TAG" \
             artifacts/* \
             --title "zick ${VERSION}" \
-            --notes "zick ${VERSION} — see the manual (https://djha-skin.github.io/zick/) for install instructions.
-
-Linux: Fedora via COPR, Ubuntu via PPA, Debian source package and RHEL source RPM attached here."
+            --notes "zick ${VERSION} — see the manual (https://djha-skin.github.io/zick/) for install instructions. Linux: Fedora via COPR, Ubuntu via PPA, Debian source package and RHEL source RPM attached here."
