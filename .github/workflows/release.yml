@@ -274,11 +274,13 @@ jobs:
         shell: bash
         run: |
           # SBCL's Windows executable needs its runtime DLLs next to it.
-          # `which sbcl` resolves to a Chocolatey shim (bin/sbcl) whose dir
-          # has no DLLs; find the real sbcl.exe in the package dir instead.
+          # `which sbcl` resolves to a Chocolatey shim (bin/sbcl); the real
+          # install (the official SBCL MSI) lives under "Program Files\sbcl".
+          # Find libsbcl.dll itself to get the install dir.
           cd "$GITHUB_WORKSPACE"
-          SBCL_DIR="$(dirname "$(find /c/ProgramData/chocolatey/lib/sbcl \
-              -iname 'sbcl.exe' 2>/dev/null | head -1)")"
+          LIBSBCL="$(find /c/Program\ Files /c/ProgramData/chocolatey \
+              -iname 'libsbcl.dll' 2>/dev/null | head -1)"
+          SBCL_DIR="$(dirname "$LIBSBCL")"
           echo "SBCL_DIR=$SBCL_DIR"
           cp "$SBCL_DIR"/libsbcl.dll .
           cp "$SBCL_DIR"/libgcc_s_seh-1.dll . 2>/dev/null || true
