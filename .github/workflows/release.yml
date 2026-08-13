@@ -301,7 +301,10 @@ jobs:
         shell: bash
         run: |
           cd "$GITHUB_WORKSPACE"
-          zip zick-windows-x64.zip zick.exe
+          # Git Bash has unzip but not zip; Windows ships tar.exe (bsdtar),
+          # which writes a real zip when -a selects the compressor from the
+          # output extension.
+          tar -a -c -f zick-windows-x64.zip zick.exe
 
       - name: upload binary
         uses: actions/upload-artifact@v4
