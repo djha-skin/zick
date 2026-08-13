@@ -56,12 +56,45 @@ Bear in mind, we use the following tools:
 * For testing, run `(asdf:test-system "com.djhaskin.<name-of-the-repository>")`
   using swanky.
 
-## Using swanky
+### Using swank
+
+#### The Swank Server
+
+Swank is a protocol which allows you to connect to a running Lisp REPL. This is
+important because any other way of connecting to a REPL can cause problems.
+
+To start swank:
+
+1. Confirm that you are in TMUX by checking environment variables.
+2. Split the current pane.
+3. In the newly created pane, run `clrepl` at the command prompt.
+4. Run `(asdf:load-system "swank")` to get OCICL to install it and ASDF to load
+   it.
+5. Run `(swank:create-server :port 4005 :dont-close t)` at the lisp prompt.
+
+You may wish to examine the tmux window occasionally as you send things to it,
+but it will mostly be noise/warning messages, and it is too token intensive for
+you to use `tmux` commands heavily in your session, so check on that pane
+sparingly, such as when you expect some lisp form to print to standard out or
+error. Be careful when mucking with tmux panes, as if you do it wrong you may
+kill the pane from which YOU are running.
+
+To stop or restart swank, probably best to just kill that specific tmux pane and
+recreate it as needed.
+
+The default port is `4005`, but you can create multiple swank sessions by
+following the steps above. Because of how OCICL works, the best thing is to have
+a swank session running from the PWD of whatever lisp project you're worked on,
+one swank server for _each_. So, if you are working in two lisp projects
+simultaneously, add a tmux pane and swank server in the panes for each project,
+and start the `clrepl` command from the particular respective directories of the
+projects, so as to ensure `(asdf:load-system ...)` puts those systems in the
+`.ocicl` directory inside each of those project directories.
+
+#### Swanky, the Sway Client
 
 `swanky` is a one-shot CLI: it connects to the running swank server, evaluates
-a single form, prints the result, and exits. The user starts the swank server
-(e.g. from a `clrepl` prompt with `(swank:create-server :port 4005 :dont-close t)`).
-The default port is `4005`.
+a single form, prints the result, and exits.
 
 Basic usage:
 
@@ -72,7 +105,7 @@ swanky -e '(+ 1 2)' -H 10.0.0.1 -p 4005 # explicit host/port
 swanky -e '(format t "hi~%")' --show-output  # capture *standard-output* (goes to stderr)
 ```
 
-### Gotchas (IMPORTANT — read before using)
+#### Swanky Gotchas (IMPORTANT — read before using)
 
 1. **Fully qualify ALL symbols in the form you send.** The swank server reads
    the request in `SWANK-IO-PACKAGE`, which uses **no** packages (only `nil`,
