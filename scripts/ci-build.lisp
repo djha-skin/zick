@@ -42,6 +42,17 @@
               ";; ci-build: no ocicl runtime at ~A; run `ocicl setup`~%"
               runtime)))
 
+;;; Make the repository's own .asd files findable.  ASDF's default source
+;;; registry includes the current directory on Unix, but not reliably on
+;;; Windows, so register it explicitly (the same snippet `ocicl setup`
+;;; suggests putting in your startup file).  Without this, the ocicl
+;;; system-definition searcher gets consulted for our own systems and tries
+;;; to `ocicl install` them.
+(asdf:initialize-source-registry
+  (list :source-registry
+        (list :directory (uiop:getcwd))
+        :inherit-configuration))
+
 (asdf:load-asd (merge-pathnames "com.djhaskin.zick.asd" (uiop:getcwd)))
 (asdf:load-system :com.djhaskin.zick)
 

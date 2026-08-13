@@ -198,7 +198,10 @@ jobs:
           mkdir -p /tmp/ocicl-bin
           cd /tmp/ocicl-bin
           unzip -oq /tmp/ocicl.zip
-          echo "/tmp/ocicl-bin" >> "$GITHUB_PATH"
+          # Add the Windows-native path (cygpath) so the SBCL build process
+          # (a Windows CreateProcess child) can find ocicl.exe on PATH — a
+          # bare /tmp/ocicl-bin only works inside Git Bash.
+          echo "$(cygpath -w /tmp/ocicl-bin)" >> "$GITHUB_PATH"
 
       - name: clone sibling systems
         shell: bash
