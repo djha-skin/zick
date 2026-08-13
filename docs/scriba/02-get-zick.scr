@@ -2,29 +2,97 @@
 
 @title(Get zick)
 
-zick is a Common Lisp program, built with
-@link[uri="https://github.com/roswell/roswell"](Roswell) and
-@link[uri="https://github.com/ocicl/ocicl"](ocicl).  You build the
-@c(zick) executable yourself; there are no prebuilt binaries yet.
+zick ships prebuilt binaries for Linux, macOS, and Windows.  They are
+published on the
+@link[uri="https://github.com/djha-skin/zick/releases"](GitHub Releases
+page) for every tagged release.  Prefer a prebuilt binary; building
+from source is only needed if you want the very latest commits or a
+platform we do not build for.
 
 @begin(section)
-@title(Prerequisites)
+@title(Prebuilt binaries)
+
+Each release page carries the following artifacts:
 
 @begin(list)
-@item(A recent @link[uri="https://www.sbcl.org/"](SBCL) — zick is
-developed against SBCL 2.x)
-@item(@link[uri="https://github.com/roswell/roswell"](Roswell), for
-@c(ros) and @c(ros build))
-@item(@link[uri="https://github.com/ocicl/ocicl"](ocicl), for
-dependencies)
+@item(@b(Linux) — a generic @c(zick-linux-x86_64.tar.gz) tarball that
+runs on any modern glibc distribution, plus native packages for the
+distros we build on: @c(.deb) for Debian stable and Ubuntu 24.04/26.04,
+and @c(.rpm) for Fedora 43/44.  Source packages (@c(.dsc), @c(.src.rpm))
+ride along for distros we do not package, such as RHEL.)
+@item(@b(macOS) — @c(zick-macos-x64.tar.gz) for Intel and
+@c(zick-macos-arm64.tar.gz) for Apple Silicon.)
+@item(@b(Windows) — @c(zick-windows-x64.zip), a @c(zick.exe) with the
+SBCL runtime DLLs bundled beside it.)
 @end(list)
+
+@end(section)
+
+@begin(section)
+@title(Installing on Linux)
+
+Download the generic tarball and put the executable on your
+@c(PATH):
+
+@begin[lang=sh](code)
+curl -fSsL -o zick.tar.gz \\
+  https://github.com/djha-skin/zick/releases/download/v0.1.0/zick-linux-x86_64.tar.gz
+tar xzf zick.tar.gz
+install -m755 zick ~/.local/bin/zick
+@end(code)
+
+Or install a native package for your distro:
+
+@begin[lang=sh](code)
+# Debian or Ubuntu
+sudo dpkg -i zick_0.1.0_amd64.deb
+# Fedora
+sudo dnf install ./zick-0.1.0-1.x86_64.rpm
+@end(code)
+
+@end(section)
+
+@begin(section)
+@title(Installing on macOS)
+
+Download the tarball for your architecture, extract it, and move the
+binary onto your @c(PATH):
+
+@begin[lang=sh](code)
+curl -fSsL -o zick.tar.gz \\
+  https://github.com/djha-skin/zick/releases/download/v0.1.0/zick-macos-arm64.tar.gz
+tar xzf zick.tar.gz
+install -m755 zick /usr/local/bin/zick
+@end(code)
+
+(Substitute @c(zick-macos-x64.tar.gz) on Intel Macs.)  The binaries are
+unsigned, so Gatekeeper will block the first launch: right-click the
+binary in Finder and choose @b(Open), or run
+@c(xattr -dr com.apple.quarantine /usr/local/bin/zick) once.
+
+@end(section)
+
+@begin(section)
+@title(Installing on Windows)
+
+Download @c(zick-windows-x64.zip), extract it, and add the folder to
+your @c(PATH) (or move @c(zick.exe) somewhere already on it).  The
+@c(libsbcl.dll) and MinGW runtime DLLs must stay in the same folder as
+@c(zick.exe); they are bundled in the zip for that reason.
+
+The executable is unsigned, so SmartScreen shows an @i(unknown
+publisher) warning the first time: choose @b(More info) then @b(Run
+anyway).
 
 @end(section)
 
 @begin(section)
 @title(Building from Source)
 
-Clone the repository:
+zick is a Common Lisp program, built with
+@link[uri="https://www.sbcl.org/"](SBCL) and
+@link[uri="https://github.com/ocicl/ocicl"](ocicl).  To build it
+yourself:
 
 @begin[lang=sh](code)
 git clone https://github.com/djha-skin/zick.git
@@ -53,10 +121,6 @@ environment variables are required at run time.  The result is
 @begin[lang=sh](code)
 ln -s "$PWD/com.djhaskin.zick" ~/.local/bin/zick
 @end(code)
-
-To use the command names in this manual without a @c(PATH) change, the
-examples that follow assume @c(zick) is on your @c(PATH).  (If yours is
-still at @c(./com.djhaskin.zick), substitute it in.)
 
 @end(section)
 
