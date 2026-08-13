@@ -108,6 +108,9 @@ jobs:
           set -eux
           VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p /tmp/debsrc
+          # dpkg-source looks for the .orig tarball beside the source dir
+          # (../zick_${VERSION}.orig.tar.gz), so copy it in.
+          cp "zick_${VERSION}.orig.tar.gz" /tmp/debsrc/
           tar xzf "zick_${VERSION}.orig.tar.gz" -C /tmp/debsrc
           cp -r packaging/debian "/tmp/debsrc/zick-${VERSION}/debian"
           cd "/tmp/debsrc/zick-${VERSION}"
