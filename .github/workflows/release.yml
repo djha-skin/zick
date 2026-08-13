@@ -105,14 +105,14 @@ jobs:
             # workspace; no copy needed.
             fpm -s dir -t deb -n zick -v "$VERSION" -a amd64 -C pkg \
                 --description "A zip-based package manager for Common Lisp systems" \
-                --url "https://djha-skin.github.io/zick/" --license MIT \
+                --url "https://github.com/djha-skin/zick" --license MIT \
                 --maintainer "Daniel Jay Haskin <djhaskin987@gmail.com>" .
           else
             # fpm writes the package into the step cwd, which is the
             # workspace; no copy needed.
             fpm -s dir -t rpm -n zick -v "$VERSION" -a x86_64 -C pkg \
                 --description "A zip-based package manager for Common Lisp systems" \
-                --url "https://djha-skin.github.io/zick/" --license MIT \
+                --url "https://github.com/djha-skin/zick" --license MIT \
                 --maintainer "Daniel Jay Haskin <djhaskin987@gmail.com>" .
           fi
 

@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Daniel Jay Haskin <djhaskin987@gmail.com>
 Build-Depends: debhelper-compat (= 13), sbcl, git, curl
 Standards-Version: 4.6.2
-Homepage: https://djha-skin.github.io/zick/
+Homepage: https://github.com/djha-skin/zick
 
 Package: zick
 Architecture: amd64

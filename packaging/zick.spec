@@ -12,8 +12,8 @@ Release:        1%{?dist}
 Summary:        A zip-based package manager for Common Lisp systems
 
 License:        MIT
-URL:            https://djha-skin.github.io/zick/
-Source0:        https://github.com/djha-skin/zick/releases/download/v%{version}/zick-%{version}-src.tar.gz
+URL:            https://github.com/djha-skin/zick
+Source0:        %{url}/releases/download/v%{version}/zick-%{version}-src.tar.gz
 
 BuildRequires:  sbcl
 BuildRequires:  git
