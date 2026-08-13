@@ -4,10 +4,11 @@
 # Linux legs run inside the prebuilt per-distro build images from the
 # sbcl-ocicl-fpm repo (ghcr.io/djha-skin/sbcl-ocicl-fpm) which carry SBCL,
 # ocicl, Roswell, FPM, and the distro packaging tools.  Each Linux leg emits
-# the SOURCE package for its distro: .src.rpm (fedora) or the Debian source
-# package (debian/ubuntu).  Fedora/Ubuntu binaries are built by COPR and the
-# PPA from those sources; the Debian source deb and the RHEL source rpm ride
-# on the Release itself.  macOS and Windows legs emit the platform binaries.
+# the binary package for its distro (deb via fpm for debian/ubuntu, rpm via
+# fpm for fedora) plus the SOURCE package (Debian source package for
+# debian/ubuntu, .src.rpm for fedora).  Fedora/Ubuntu COPR and PPA publishing
+# are deferred; for now every artifact rides on the GitHub Release page.
+# macOS and Windows legs emit the platform binaries.
 #
 # The release job assembles everything with `gh release create`.
 
@@ -265,4 +266,4 @@ jobs:
           gh release create "$TAG" \
             artifacts/* \
             --title "zick ${VERSION}" \
-            --notes "zick ${VERSION} — see the manual (https://djha-skin.github.io/zick/) for install instructions. Linux: Fedora via COPR, Ubuntu via PPA, Debian source package and RHEL source RPM attached here."
+            --notes "zick ${VERSION} — see the manual (https://djha-skin.github.io/zick/) for install instructions. This release ships prebuilt binaries for Linux (x86_64), macOS (x86_64 + arm64), and Windows (x64), plus binary and source packages for Debian/Ubuntu (deb) and Fedora/RHEL (rpm)."
