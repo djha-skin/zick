@@ -297,11 +297,36 @@
             (:result . :package-found)
             (:package-dependees . ,(plists-to-fset-seq dependees)))))))
 
+(defun verify-all-command (options)
+  "Verify every installed package, collecting all package failures."
+  (let* ((opts (hash-to-plist options))
+         (packages (pkg:get-present-packages opts))
+         failures)
+    (dolist (package packages)
+      (let* ((name (getf package :name))
+             (results
+               (pkg:verify-package-files
+                (list* :package-name name opts))))
+        (when results
+          (push (list :package name
+                      :verification-results
+                      (verification-to-data results))
+                failures))))
+    (alexandria:alist-hash-table
+      (list (cons :status (if failures
+                              :verification-failed
+                              :successful))
+            (cons :result :packages-found)
+            (cons :verification-results
+                  (plists-to-fset-seq (nreverse failures)))))))
+
 (defun verify-command (options)
-  "Verify the files of a package on disk.
+  "Verify a package, or every package when --all is enabled.
 
    Exits 3 when the package is not installed and 4 when verification
    finds failures, mirroring zic."
+  (when (gethash :verify-all options)
+    (return-from verify-command (verify-all-command options)))
   (when (null (gethash :package-name options))
     (return-from verify-command
                  (exit-with :cl-usage-error *package-name-required*)))
@@ -548,7 +573,7 @@
   (format t "  remove      Remove a package from the installation~%")
   (format t "  dependers   List packages that depend on a package~%")
   (format t "  dependees   List packages a package depends on~%")
-  (format t "  verify      Verify the files of a package~%")
+  (format t "  verify      Verify a package (or all with --all)~%")
   (format t "~%")
   (format t "Run `zick help` for the CLIFF help page.~%")
   (alexandria:alist-hash-table
@@ -589,6 +614,7 @@
             (cons :start-directory (uiop:native-namestring (uiop:getcwd)))
             (cons :cascade nil)
             (cons :dry-run nil)
+            (cons :verify-all nil)
             (cons :download-package t))
       :setup #'setup
       :cli-aliases
@@ -615,6 +641,8 @@
         ("-C" . "--disable-cascade")
         ("-r" . "--enable-dry-run")
         ("-R" . "--disable-dry-run")
+        ;; Verify
+        ("--all" . "--enable-verify-all")
         ;; Help
         ("-h" . "help")
         ("--help" . "help"))

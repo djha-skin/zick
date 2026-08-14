@@ -6,6 +6,19 @@ All notable changes to zick are documented in this section.  The canonical,
 up-to-date changelog lives in the repository's @c(CHANGELOG.md).
 
 @begin(section)
+@title(0.3.0 — 2026-08-14)
+
+Added:
+
+@begin(list)
+@item(@c(zick verify --all) verifies every installed package in one
+invocation, aggregates failures by package, and preserves exit code 4 for
+any failure.)
+@end(list)
+
+@end(section)
+
+@begin(section)
 @title(0.2.0 — 2026-08-14)
 
 Added:

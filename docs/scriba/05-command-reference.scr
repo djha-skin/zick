@@ -385,7 +385,13 @@ SHA-256 checksum for @c(normal-file) records, presence for
 
 @begin(list)
 @item(@c(-k)/@c(--set-package-name) — the package name.  Required.)
+@item(@c(--all) — verify every installed package and aggregate failures.
+The package-name option is not required with @c(--all).)
 @end(list)
+
+With @c(--all), each entry under @c(verification-results) names the
+package that failed and contains that package's grouped file failures.  A
+clean or empty store returns exit 0; any failing package returns exit 4.
 
 Result when every file checks out:
 

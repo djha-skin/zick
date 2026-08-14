@@ -155,6 +155,8 @@ on a mismatch):
 
 ```bash
 zick verify -k myapp
+# Or verify every installed package:
+zick verify --all
 ```
 
 Uninstall, optionally cascading to dependents (`-c`), or dry-running

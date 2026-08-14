@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-14
+
+### Added
+
+- `zick verify --all` verifies every installed package in one invocation,
+  aggregates failures by package, and preserves exit code 4 for any failure.
+
+## [0.2.0] - 2026-08-14
+
+### Added
+
+- Declarative project dependency workflows: `zick freeze` writes a
+  deterministic versioned `zick.lock.nrdl`, and `zick sync` installs its
+  packages in dependency order with drift detection and `--dry-run` support.
+
+### Changed
+
+- The macOS release build is now Apple Silicon (arm64) only; the Intel
+  (x64) leg was dropped as an uncommon platform.  Intel Macs must build from
+  source.
+
 ## [0.1.0] - 2026-08-13
 
 ### Added
@@ -111,17 +132,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Linux x86_64 tarball, macOS (x86_64 + arm64) and Windows (x64)
   binaries, all published on the GitHub Releases page for v0.1.0
   (COPR/PPA/AUR/Homebrew channels planned for later releases).
-
-## [0.2.0] - 2026-08-14
-
-### Added
-
-- Declarative project dependency workflows: `zick freeze` writes a
-  deterministic versioned `zick.lock.nrdl`, and `zick sync` installs its
-  packages in dependency order with drift detection and `--dry-run` support.
-
-### Changed
-
-- The macOS release build is now Apple Silicon (arm64) only; the Intel
-  (x64) leg was dropped as an uncommon platform.  Intel Macs must
-  build from source.

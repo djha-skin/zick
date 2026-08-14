@@ -22,6 +22,11 @@ mkdir -p "${test_home}/proj"
 grep -q 'result package-found' "${test_home}/ok.nrdl"
 grep -Fq 'verification-results [' "${test_home}/ok.nrdl"
 
+# All packages: exit 0 when the whole project is correct.
+"${runthis}" verify --all -d "${test_home}/proj" \
+    > "${test_home}/all-ok.nrdl" 2>&1
+grep -q 'result packages-found' "${test_home}/all-ok.nrdl"
+
 # Not installed: exit 3.
 set +e
 "${runthis}" verify -d "${test_home}/proj" -k ghost \
@@ -39,4 +44,13 @@ tampered_exit=$?
 set -e
 [ "${tampered_exit}" -eq 4 ]
 grep -q 'verification-failed' "${test_home}/tampered.nrdl"
+
+# --all also returns 4 and reports the tampered package.
+set +e
+"${runthis}" verify --all -d "${test_home}/proj" \
+    > "${test_home}/all-tampered.nrdl" 2>&1
+all_tampered_exit=$?
+set -e
+[ "${all_tampered_exit}" -eq 4 ]
+grep -q 'package "a"' "${test_home}/all-tampered.nrdl"
 echo "test-verify: ok"

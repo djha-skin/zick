@@ -35,7 +35,7 @@ Download the generic tarball and put the executable on your
 
 @begin[lang=sh](code)
 curl -fSsL -o zick.tar.gz \\
-  https://github.com/djha-skin/zick/releases/download/v0.2.0/zick-linux-x86_64.tar.gz
+  https://github.com/djha-skin/zick/releases/download/v0.3.0/zick-linux-x86_64.tar.gz
 tar xzf zick.tar.gz
 install -m755 zick ~/.local/bin/zick
 @end(code)
@@ -44,9 +44,9 @@ Or install a native package for your distro:
 
 @begin[lang=sh](code)
 # Debian or Ubuntu
-sudo dpkg -i zick_0.2.0_amd64.deb
+sudo dpkg -i zick_0.3.0_amd64.deb
 # Fedora
-sudo dnf install ./zick-0.2.0-1.x86_64.rpm
+sudo dnf install ./zick-0.3.0-1.x86_64.rpm
 @end(code)
 
 @end(section)
@@ -59,7 +59,7 @@ Download the tarball, extract it, and move the binary onto your
 
 @begin[lang=sh](code)
 curl -fSsL -o zick.tar.gz \\
-  https://github.com/djha-skin/zick/releases/download/v0.2.0/zick-macos-arm64.tar.gz
+  https://github.com/djha-skin/zick/releases/download/v0.3.0/zick-macos-arm64.tar.gz
 tar xzf zick.tar.gz
 install -m755 zick /usr/local/bin/zick
 @end(code)

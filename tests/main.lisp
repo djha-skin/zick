@@ -391,6 +391,46 @@
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
 
+(define-test verify-all-reports-all-package-failures
+  :parent nil
+  "verify --all handles an empty store, verifies every package, and
+   reports failures grouped by package."
+  (let* ((root (temporary-dir "zick-cli-verify-all"))
+         (proj (project root))
+         (src-a (merge-pathnames "pkg-a/" root))
+         (src-b (merge-pathnames "pkg-b/" root))
+         (zip-a (make-zip
+                  root (write-source-fixture src-a
+                                              '(("a.txt" . "a content")))
+                  "a.zip"))
+         (zip-b (make-zip
+                  root (write-source-fixture src-b
+                                              '(("b.txt" . "b content")))
+                  "b.zip"))
+         (url-a (http-serve-once zip-a))
+         (url-b (http-serve-once zip-b)))
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "verify" "--all")
+            (is = 0 exit)
+            (true (search "result packages-found" out))
+            (true (search "verification-results [" out)))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "1.0" "-l" url-a))
+          (is = 0 (cli proj "add" "-k" "b" "-V" "1.0" "-l" url-b))
+          (write-text-file (merge-pathnames "a.txt" proj) "tampered")
+          (multiple-value-bind (exit out)
+                               (cli-captured proj "verify" "--all")
+            (is = 4 exit)
+            (true (search "status verification-failed" out))
+            (true (search "package \"a\"" out))
+            (true (search "size-discrepancy" out)))
+          (write-text-file (merge-pathnames "a.txt" proj) "a content")
+          (is = 0 (cli proj "verify" "--all")))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
 (define-test add-with-json-download-authorizations
   :parent nil
   "zick add --json-download-authorizations supplies basic auth to the

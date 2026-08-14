@@ -7,7 +7,7 @@
 # build is self-contained except for the ocicl dependency downloads.
 
 pkgname=zick
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="A zip-based package manager for Common Lisp systems"
 arch=('x86_64')

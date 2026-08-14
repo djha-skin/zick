@@ -1,6 +1,6 @@
 pkgbase = zick
 	pkgdesc = A zip-based package manager for Common Lisp systems
-	pkgver = 0.2.0
+	pkgver = 0.3.0
 	pkgrel = 1
 	url = https://github.com/djha-skin/zick
 	arch = x86_64
@@ -9,7 +9,7 @@ pkgbase = zick
 	makedepends = git
 	makedepends = curl
 	depends = glibc
-	source = zick-0.2.0-src.tar.gz::https://github.com/djha-skin/zick/releases/download/v0.2.0/zick-0.2.0-src.tar.gz
+	source = zick-0.3.0-src.tar.gz::https://github.com/djha-skin/zick/releases/download/v0.3.0/zick-0.3.0-src.tar.gz
 	sha256sums = SKIP
 
 pkgname = zick
