@@ -97,9 +97,11 @@ Please note the following style guidelines:
   debugger state. Do NOT use one-off `sbcl` or `ros` commands (except `ros
   build` for executables, `ros init` for script scaffolding, and the explicit
   paren-check script). Use `--kind sbcl`, generous `--timeout` and
-  `--max-lines` for loads and test suites. If a form enters the debugger, use
-  its numbered exit restart rather than `(abort)`; see Development Workflow for
-  nested-prompt and multiline-echo workarounds.
+  `--max-lines` for loads and test suites. If a form enters the debugger,
+  investigate briefly, then use its numbered exit restart immediately. Verify
+  the pane is back at `* `, not merely `is-repl-ready`; `(abort)` is not a safe
+  substitute. See Development Workflow for nested-prompt and multiline-echo
+  workarounds.
 
 * Run `lisp-check-parens.ros` on Lisp source files before committing to catch
   unbalanced parentheses. See the [Development Workflow](development-workflow.md)

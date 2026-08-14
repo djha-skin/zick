@@ -54,11 +54,13 @@ loads and test suites generous `--timeout` and `--max-lines` values. Keep the
 pane visible while developing, and remove it when finished:
 `muxxy --pane '%1' kill-pane`.
 
-The SBCL kind treats `* `, numbered debugger prompts, and `ldb> ` as ready. A
-debugger prompt is a usable command boundary. To leave the debugger, send its
-numbered exit restart (for example `5`), not `(abort)`; `(abort)` is evaluated
-inside the debugger and may leave it active. If an error creates a nested
-prompt such as `0[2]`, add
+The SBCL kind treats `* `, numbered debugger prompts, and `ldb> ` as ready.
+When a form drops into the debugger, investigate the error only as much as
+needed, then leave immediately with its numbered exit restart. Verify that the
+pane is back at `* `; `is-repl-ready` alone is insufficient because `1]` is
+also considered ready. Do not use `(abort)`; it is evaluated inside the
+debugger and may leave it active. If an error creates a nested prompt such as
+`0[2]`, add
 `--prompt '^ *[0-9]+(\\[[0-9]+\\]|\\])'` alongside `--kind sbcl`.
 
 Prefer single-line forms. rlwrap's multiline echo can make command capture
