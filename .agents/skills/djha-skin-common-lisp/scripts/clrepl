@@ -1,0 +1,32 @@
+#!/bin/sh
+# Completion file taken from here:
+# https://web.archive.org/web/20031207221537/http://weitz.de/files/cmucl_completions
+# Pointed out from here: https://stackoverflow.com/a/60281483
+# Thanks to Dr. Edi Weitz, who first created the completion file.
+# His home page is at https://weitz.de/
+# His CL projects are here: https://edicl.github.io/
+export RLWRAP_HOME=${PWD}/.repl
+export C_INCLUDE_PATH=/usr/include
+export LIBRARY_PATH=/usr/lib64:/usr/lib
+
+if [ ! -d "${PWD}/.git" ]
+then
+    echo "This script should be run from the root of the project." >&2
+    exit 1
+fi
+
+# This script should be run from the root of the project.
+/usr/bin/rlwrap \
+    --ansi-colour-aware \
+    --break-chars "(){}[],'#\";|\\" \
+    --case-insensitive \
+    --file ${PWD}/.agents/skills/djha-skin-common-lisp/data/edi-weitz \
+    --history-filename ~/.cl-history \
+    --only-cook '^[]*>0-9]+ ' \
+    --prompt-colour=blue \
+    --forget-matching '[^)] *$' \
+    --forget-matching '^[^(]' \
+    -M '.lisp' \
+    --quote-characters "\"" \
+    --remember \
+    ros run -- "${@}"

@@ -22,11 +22,12 @@ folder.
 
 ## Tooling
 
-* **muxxy** — Drive a `clrepl` process in a tmux pane. Use muxxy for all
-  interactive Lisp operations: loading systems, running tests, evaluating
-  forms, and inspecting debugger state. Do not use one-off `sbcl` or `ros`
-  commands. Use `clrepl`, not raw `sbcl`, because it provides the project's
-  Roswell/rlwrap setup.
+* **muxxy** — Drive a `clrepl` process in a tmux pane (`clrepl` is a script
+  found in this skill). Run this process from the root of the project. Use muxxy
+  for all interactive Lisp operations: loading systems, running tests,
+  evaluating forms, and inspecting debugger state. Do not use one-off `sbcl` or
+  `ros` commands. Use `clrepl`, not raw `sbcl`, because it provides the
+  project's Roswell/rlwrap setup.
 * **OCICL** — Run `ocicl install` for systems listed in `ocicl.csv`. Do not use
   Qlot or Quicklisp.
 * **Roswell** — Use `ros init` for script scaffolding and `ros build` for
@@ -39,7 +40,9 @@ folder.
 Start a project-local REPL pane and retain the pane id:
 
 ```sh
-muxxy split-pane --directory "$PWD" --command 'clrepl' --sleep 5
+muxxy split-pane --directory "$PWD" \
+    --command "${PWD}/.agents/skills/djha-skin-common-lisp/scripts/clrepl" \
+    --sleep 5
 muxxy --pane '%1' --kind sbcl is-repl-ready
 muxxy --pane '%1' --kind sbcl execute-command \
   '(asdf:load-system "com.djhaskin.zick/tests")' \
