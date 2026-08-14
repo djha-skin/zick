@@ -8,163 +8,79 @@ description: >
 
 # Development Workflow
 
-These steps assume you have the repository cloned out and that you are in that
+These steps assume that the repository is cloned and that you are in that
 folder.
 
 ## Steps
 
 1. Ask the user for instructions on what to build.
-
-2. Ask the user several questions, at least five, about specifics of what is
-   needed. Try to make sure you're not guessing at features.
-
-3. Write a bunch of beads using the beads MCP server to capture what the user
-   said. Upon first start up, remember to check what beads are open and resume
-   them if appropriate.
-
-4. Pick up each bead and work it in turn. As you work each bead, heavily employ
-   TDD. Check your work often by spinning up subagents to audit both your work,
-   your tests, and your commits.
-
-5. Spin up a subagent to validate your commits against the brief in the beads,
-   and offer any helpful critiques. Have them point out any critical bugs or how
-   the code could break.
-
-6. Address the concerns.
-
-7. For each bead, commit and push work done per the above workflow. Add an entry
-   to the changelog as appropriate. Keep a changelog as set forth here:
-   https://keepachangelog.com/en/1.1.0/
+2. Ask several questions about specifics so that requirements are not guessed.
+3. Check open beads and capture the requested work in beads.
+4. Pick up each bead and work it in turn, using TDD and frequent checks.
+5. Have a subagent audit the work and address its concerns.
+6. Commit and push each completed bead, adding a changelog entry as needed.
 
 ## Tooling
 
-Bear in mind, we use the following tools:
-
-* **swanky** — Use the `swanky` CLI tool to interact with a swank server, and
-  thus the lisp REPL. Expect the user to have already set up that server and
-  have it running. Use swanky for ALL Lisp operations:
-  loading systems, running tests, editing forms, checking parens, searching
-  code. Do NOT use one-off `sbcl` or `ros` commands.
-
-* **OCICL** for package management. Run `ocicl install` to install all systems
-  listed in `ocicl.csv`. Systems are downloaded project-locally. Do NOT use
-  Qlot (`qlot`) or Quicklisp (`ql:quickload`).
-
-* Roswell. `ros init` to make roswell scripts, `ros build` to build executables.
-  Dependencies are resolved via OCICL, not Qlot.
-
+* **muxxy** — Drive a `clrepl` process in a tmux pane. Use muxxy for all
+  interactive Lisp operations: loading systems, running tests, evaluating
+  forms, and inspecting debugger state. Do not use one-off `sbcl` or `ros`
+  commands. Use `clrepl`, not raw `sbcl`, because it provides the project's
+  Roswell/rlwrap setup.
+* **OCICL** — Run `ocicl install` for systems listed in `ocicl.csv`. Do not use
+  Qlot or Quicklisp.
+* **Roswell** — Use `ros init` for script scaffolding and `ros build` for
+  executables. Dependencies come from OCICL.
 * For testing, run `(asdf:test-system "com.djhaskin.<name-of-the-repository>")`
-  using swanky.
+  through muxxy.
 
-### Using swank
+### Using muxxy
 
-#### The Swank Server
-
-Swank is a protocol which allows you to connect to a running Lisp REPL. This is
-important because any other way of connecting to a REPL can cause problems.
-
-To start swank:
-
-1. Confirm that you are in TMUX by checking environment variables.
-2. Split the current pane.
-3. In the newly created pane, run `clrepl` at the command prompt.
-4. Run `(asdf:load-system "swank")` to get OCICL to install it and ASDF to load
-   it.
-5. Run `(swank:create-server :port 4005 :dont-close t)` at the lisp prompt.
-
-You may wish to examine the tmux window occasionally as you send things to it,
-but it will mostly be noise/warning messages, and it is too token intensive for
-you to use `tmux` commands heavily in your session, so check on that pane
-sparingly, such as when you expect some lisp form to print to standard out or
-error. Be careful when mucking with tmux panes, as if you do it wrong you may
-kill the pane from which YOU are running.
-
-To stop or restart swank, probably best to just kill that specific tmux pane and
-recreate it as needed.
-
-The default port is `4005`, but you can create multiple swank sessions by
-following the steps above. Because of how OCICL works, the best thing is to have
-a swank session running from the PWD of whatever lisp project you're worked on,
-one swank server for _each_. So, if you are working in two lisp projects
-simultaneously, add a tmux pane and swank server in the panes for each project,
-and start the `clrepl` command from the particular respective directories of the
-projects, so as to ensure `(asdf:load-system ...)` puts those systems in the
-`.ocicl` directory inside each of those project directories.
-
-#### Swanky, the Sway Client
-
-`swanky` is a one-shot CLI: it connects to the running swank server, evaluates
-a single form, prints the result, and exits.
-
-Basic usage:
+Start a project-local REPL pane and retain the pane id:
 
 ```sh
-swanky '(+ 1 2)'                        # print result of a form
-echo '(* 6 7)' | swanky                 # read form from stdin
-swanky -e '(+ 1 2)' -H 10.0.0.1 -p 4005 # explicit host/port
-swanky -e '(format t "hi~%")' --show-output  # capture *standard-output* (goes to stderr)
+muxxy split-pane --directory "$PWD" --command 'clrepl' --sleep 5
+muxxy --pane '%1' --kind sbcl is-repl-ready
+muxxy --pane '%1' --kind sbcl execute-command \
+  '(asdf:load-system "com.djhaskin.zick/tests")' \
+  --timeout 180 --max-lines 10000
+muxxy --pane '%1' --kind sbcl execute-command \
+  '(asdf:test-system "com.djhaskin.zick")' \
+  --timeout 300 --max-lines 30000
 ```
 
-#### Swanky Gotchas (IMPORTANT — read before using)
+Use `--directory` so ASDF and OCICL resolve project-local dependencies. Give
+loads and test suites generous `--timeout` and `--max-lines` values. Keep the
+pane visible while developing, and remove it when finished:
+`muxxy --pane '%1' kill-pane`.
 
-1. **Fully qualify ALL symbols in the form you send.** The swank server reads
-   the request in `SWANK-IO-PACKAGE`, which uses **no** packages (only `nil`,
-   `t`, `quote` are available). An unqualified symbol like `+` or `list` gets
-   interned as `SWANK-IO-PACKAGE::+` and will be *undefined*. Always write
-   `cl:+`, `cl:list`, `cl:format`, `cl:defun`, etc. Symbols with explicit
-   package prefixes (`cl:+`, `com.djhaskin.foo:bar`) resolve fine.
+The SBCL kind treats `* `, numbered debugger prompts, and `ldb> ` as ready. A
+debugger prompt is a usable command boundary. To leave the debugger, send its
+numbered exit restart (for example `5`), not `(abort)`; `(abort)` is evaluated
+inside the debugger and may leave it active. If an error creates a nested
+prompt such as `0[2]`, add
+`--prompt '^ *[0-9]+(\\[[0-9]+\\]|\\])'` alongside `--kind sbcl`.
 
-2. **The form is evaluated in the buffer package you name** (`-P/--package`,
-   default `CL-USER`). Use `-P` to pick the right package so unqualified
-   symbols inside your form resolve where you expect.
-
-3. **Errors do not hang.** swanky wraps your form in a `handler-case` so
-   ordinary errors (division by zero, undefined function, etc.) come back as
-   an error message on stderr with a non-zero exit code — no debugger prompt.
-   If a form does enter the debugger anyway (rare: `break`, `invoke-debugger`),
-   swanky prints a warning and exits; tell the user to reset the swank server
-   if it gets wedged.
-
-4. **Values are printed with `prin1`-style escaping**, so a string result
-   comes back quoted: `"foo"`. Multi-value returns are printed as a list of
-   printed values from `eval-and-grab-output`.
-
-5. **Startup is fast (~5ms release build)** — safe to call swanky repeatedly
-   in loops and scripts, one invocation per form.
-
-6. **stdout vs stderr.** The evaluated form's result goes to stdout. Output
-   written with `(format t ...)` goes to stdout by default too, but with
-   `--show-output` it is redirected to stderr so the two don't mix. Use
-   `--show-output` when the form both prints and returns a value you need to
-   capture programmatically.
+Prefer single-line forms. rlwrap's multiline echo can make command capture
+stale; use a throwaway form such as `(+ 1 1)` to re-establish a clean boundary.
+Large output can cause `get-last-command` to return null unless `--max-lines` is
+increased. muxxy returns YAML, with multiline output as a literal block.
 
 ### Paren checking
 
-Run the `lisp-check-parens.ros` script (see the
-[Style Guide](style-guide.md)) before committing Lisp sources:
+Run the `lisp-check-parens.ros` script (see the Style Guide) before committing
+Lisp sources:
 
 ```sh
 ros .agents/skills/djha-skin-common-lisp/scripts/lisp-check-parens.ros src/*.lisp
 ```
 
-For each line it prints: the **line number**, the **running paren depth**
-(level after processing that line), the number of **left and right parens on
-that line**, and a snippet of the line:
-
-```
-  252 paren level: 3 | left: 2 | right: 1 | (defun resolve-locations-fn (options)
-```
-
-`left` and `right` count only the parens on that line that are actual code
-(parens inside strings, line comments, and `#|...|#` block comments are
-ignored). The running `paren level` is cumulative across lines, so it goes
-negative on an unbalanced close and ends non-zero if the file is unbalanced
-(in which case the script exits with status 1 and prints a summary line
-naming the file). It exits 0 only when every file's final depth is zero.
-
-To inspect only a specific range of lines, pass `--from N` and/or `--to M`
-(1-indexed, inclusive):
+For each line it prints the line number, running paren depth, counts of left
+and right parentheses, and a snippet. It ignores parentheses in strings,
+line comments, and block comments. It exits nonzero if a file is unbalanced.
+To inspect a range, pass `--from N` and/or `--to M` (1-indexed):
 
 ```sh
-ros .agents/skills/djha-skin-common-lisp/scripts/lisp-check-parens.ros --from 240 --to 260 src/main.lisp
+ros .agents/skills/djha-skin-common-lisp/scripts/lisp-check-parens.ros \
+  --from 240 --to 260 src/main.lisp
 ```

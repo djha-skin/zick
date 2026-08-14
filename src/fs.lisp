@@ -155,9 +155,10 @@
    Relative PATHs are absolutized against the current directory first:
    uiop's parent computation on relative pathnames grows an unbounded
    (:RELATIVE :BACK ...) chain instead of reaching the root."
-  (let ((start (if (uiop:absolute-pathname-p path)
-                   path
-                   (uiop:merge-pathnames* path (uiop:getcwd)))))
+  (let ((start (uiop:ensure-directory-pathname
+                 (if (uiop:absolute-pathname-p path)
+                     path
+                     (uiop:merge-pathnames* path (uiop:getcwd))))))
     (loop
       for p = start then (uiop:pathname-parent-directory-pathname p)
       while p

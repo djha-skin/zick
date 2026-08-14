@@ -147,4 +147,4 @@ it is a command line tool or a library.
    Tool](subskills/cliff-command-line-tool.md) subskill.
 
 9. Fill out the code as necessary until you can run `(asdf:test-system
-   "com.djhaskin.<name-of-system>")` using `swanky`.
+   "com.djhaskin.<name-of-system>")` through a muxxy-driven `clrepl` pane.

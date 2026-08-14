@@ -4,6 +4,13 @@ All notable changes to this skill will be documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Development and style workflows now use muxxy to drive a project-local
+  `clrepl` pane instead of swanky/swank.
+- Documented muxxy's SBCL debugger restart, nested-prompt, multiline-echo, and
+  large-output workarounds.
+
 ### Fixed
 
 - lisp-check-parens.ros: handle escaped quotes (`\"`) inside strings via a

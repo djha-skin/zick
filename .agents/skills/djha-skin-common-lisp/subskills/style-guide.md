@@ -92,11 +92,14 @@ Please note the following style guidelines:
   `--check` to lint without rewriting. Run it on all source files before
   committing.
 
-* Use `swanky` CLI for ALL Lisp operations — loading systems, running tests,
-  editing forms, checking parens, code search. Do NOT use one-off `sbcl` or
-  `ros` commands (except `ros build` for executables and `ros init` for
-  script scaffolding). The swanky tool connects to a running swank server
-  and evaluates one form per invocation.
+* Use `muxxy` with a project-local `clrepl` tmux pane for ALL interactive Lisp
+  operations — loading systems, running tests, evaluating forms, and inspecting
+  debugger state. Do NOT use one-off `sbcl` or `ros` commands (except `ros
+  build` for executables, `ros init` for script scaffolding, and the explicit
+  paren-check script). Use `--kind sbcl`, generous `--timeout` and
+  `--max-lines` for loads and test suites. If a form enters the debugger, use
+  its numbered exit restart rather than `(abort)`; see Development Workflow for
+  nested-prompt and multiline-echo workarounds.
 
 * Run `lisp-check-parens.ros` on Lisp source files before committing to catch
   unbalanced parentheses. See the [Development Workflow](development-workflow.md)
