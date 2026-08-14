@@ -22,6 +22,7 @@
   :components ((:module "src"
                         :components
                         ((:file "fs")
+                         (:file "lockfile")
                          (:file "db")
                          (:file "session")
                          (:file "package")
@@ -44,6 +45,7 @@
   :components ((:module "tests"
                         :components
                         ((:file "fs")
+                         (:file "lockfile")
                          (:file "db")
                          (:file "session")
                          (:file "package")
@@ -53,6 +55,7 @@
                          (uiop:symbol-call :parachute :test
                                            (list
                                              '#:com.djhaskin.zick/tests/main
+                                             '#:com.djhaskin.zick/tests/lockfile
                                              '#:com.djhaskin.zick/tests/fs
                                              '#:com.djhaskin.zick/tests/db
                                              '#:com.djhaskin.zick/tests/session

@@ -127,6 +127,29 @@
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
 
+;;; declarative lockfiles
+
+(define-test freeze-writes-declarative-lockfile
+  :parent nil
+  "freeze writes a deterministic NRDL lockfile from installed packages."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-freeze")
+    (unwind-protect
+        (progn
+          (is = 0 (cli proj "init"))
+          (is = 0 (cli proj "add" "-k" "z" "-V" "1.0"
+                       "-l" "https://example.com/z.zip" "-W"))
+          (is = 0 (cli proj "add" "-k" "a" "-V" "2.0"
+                       "-l" "https://example.com/a.zip" "-W" "-u" "z"))
+          (is = 0 (cli proj "freeze"))
+          (let ((lockfile (read-text-file
+                           (merge-pathnames "zick.lock.nrdl" proj))))
+            (true (search "version 1" lockfile))
+            (true (< (search "name \"a\"" lockfile)
+                     (search "name \"z\"" lockfile)))
+            (true (search "dependencies [" lockfile))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
 ;;; add and queries without download
 
 (define-test add-records-package-without-download

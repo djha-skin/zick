@@ -11,6 +11,9 @@ up-to-date changelog lives in the repository's @c(CHANGELOG.md).
 Added:
 
 @begin(list)
+@item(Declarative project dependency workflows: @c(zick freeze) writes a
+stable versioned @c(zick.lock.nrdl), and @c(zick sync) installs its packages
+in dependency order with drift detection and @c(--dry-run) support.)
 @item(@c(zick list) subcommand: prints every installed package with its
 version, sorted by name.  An empty database prints nothing and exits 0.)
 @item(@c(zick orphans) subcommand: lists the installed packages that nothing

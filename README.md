@@ -90,6 +90,22 @@ on another installed package:
 zick add -k myapp -V 0.1.0 -l https://example.com/myapp.zip -u mylib
 ```
 
+For reproducible project installs, write the installed package set to a
+versioned NRDL lockfile:
+
+```bash
+zick freeze
+```
+
+Commit `zick.lock.nrdl`, then synchronize another checkout with:
+
+```bash
+zick sync
+```
+
+Use `zick sync -r` to preview changes without downloading or modifying the
+project.
+
 See what's installed:
 
 ```bash

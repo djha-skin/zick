@@ -18,12 +18,27 @@
   (:import-from #:com.djhaskin.cliff/errors
     #:*exit-codes*)
   (:import-from #:com.djhaskin.zick/db
-    #:init-database)
+    #:init-database
+    #:store-packages
+    #:package-record-name
+    #:package-record-version
+    #:package-record-location
+    #:package-record-dependencies
+    #:package-record-metadata)
   (:import-from #:com.djhaskin.zick/fs
     #:find-marking-file)
   (:import-from #:com.djhaskin.zick/session
     #:path-to-connection-string
     #:with-database)
+  (:import-from #:com.djhaskin.zick/lockfile
+    #:make-lockfile-package
+    #:lockfile-package-name
+    #:lockfile-package-version
+    #:lockfile-package-location
+    #:lockfile-package-dependencies
+    #:lockfile-package-metadata
+    #:read-lockfile
+    #:write-lockfile)
   (:import-from #:com.djhaskin.zick/package
     #:get-package-dependees
     #:get-package-dependers
@@ -48,6 +63,7 @@
     (#:fs #:com.djhaskin.zick/fs)
     (#:session #:com.djhaskin.zick/session)
     (#:pkg #:com.djhaskin.zick/package)
+    (#:lock #:com.djhaskin.zick/lockfile)
     (#:nrdl #:com.djhaskin.nrdl)
     (#:f #:fset))
   (:export
@@ -364,6 +380,108 @@
         (:result . :successful)
         (:orphaned-packages . ,(plists-to-fset-seq orphans))))))
 
+(defun freeze-command (options)
+  "Write zick.lock.nrdl from the currently installed packages."
+  (let* ((opts (hash-to-plist options))
+         (path (getf opts :lockfile-path))
+         (packages
+           (session:with-database
+            (getf opts :db-connection-string)
+            (lambda (store)
+              (gmap:gmap (:result list)
+                (lambda (name package)
+                  (declare (ignore name))
+                  (make-lockfile-package
+                   :name (package-record-name package)
+                   :version (package-record-version package)
+                   :location (package-record-location package)
+                   :dependencies
+                   (f:convert 'fset:seq
+                              (package-record-dependencies package))
+                   :metadata (package-record-metadata package)))
+                (:arg :map (store-packages store)))))))
+    (write-lockfile path packages)
+    (alexandria:alist-hash-table
+      `((:status . :successful)
+        (:result . :successful)
+        (:lockfile . ,(uiop:native-namestring path))
+        (:packages . ,(f:convert 'fset:seq
+                                 (mapcar #'lockfile-package-name
+                                         packages)))))))
+
+(defun lockfile-install-order (entries)
+  "Return ENTRIES in dependency-first order, rejecting cycles and
+   references that are neither in the lockfile nor installed later by
+   the normal installer error path."
+  (let ((states (make-hash-table :test 'equal))
+        (by-name (make-hash-table :test 'equal))
+        result)
+    (dolist (entry entries)
+      (setf (gethash (lockfile-package-name entry) by-name) entry))
+    (labels ((visit (name)
+               (let ((state (gethash name states)))
+                 (when (eq state :visiting)
+                   (error "Cycle in zick lockfile dependencies at ~a." name))
+                 (unless (eq state :visited)
+                   (setf (gethash name states) :visiting)
+                   (let ((entry (gethash name by-name)))
+                     (when entry
+                       (dolist (dependency
+                                (lockfile-package-dependencies entry))
+                         (when (gethash dependency by-name)
+                           (visit dependency)))
+                       (push entry result)))
+                   (setf (gethash name states) :visited)))))
+      (dolist (entry entries)
+        (visit (lockfile-package-name entry))))
+    (nreverse result)))
+
+(defun sync-command (options)
+  "Install packages declared by zick.lock.nrdl in dependency order."
+  (let* ((opts (hash-to-plist options))
+         (entries (lockfile-install-order
+                   (read-lockfile (getf opts :lockfile-path))))
+         synced skipped)
+    (dolist (entry entries)
+      (let* ((name (lockfile-package-name entry))
+             (package-options (list* :package-name name opts))
+             (existing-info (pkg:get-package-info package-options))
+             (installed-dependencies
+               (when existing-info
+                 (sort (mapcar (lambda (dependency)
+                                 (getf dependency :name))
+                               (pkg:get-package-dependees package-options))
+                       #'string<)))
+             (expected-dependencies
+               (sort (copy-list (lockfile-package-dependencies entry))
+                     #'string<)))
+        (if (and existing-info
+                 (string= (getf existing-info :version)
+                          (lockfile-package-version entry))
+                 (string= (getf existing-info :location)
+                          (lockfile-package-location entry))
+                 (equal installed-dependencies expected-dependencies))
+            (push name skipped)
+            (progn
+              (push name synced)
+              (unless (getf opts :dry-run)
+                (pkg:install-package
+                 (list* :package-name name
+                        :package-version (lockfile-package-version entry)
+                        :package-location (lockfile-package-location entry)
+                        :package-dependency
+                        (f:convert 'fset:seq
+                                   (lockfile-package-dependencies entry))
+                        :package-metadata (lockfile-package-metadata entry)
+                        :download-package t
+                        opts)))))))
+    (alexandria:alist-hash-table
+      `((:status . :successful)
+        (:result . :successful)
+        (:dry-run . ,(getf opts :dry-run))
+        (:synced-packages . ,(f:convert 'fset:seq (nreverse synced)))
+        (:skipped-packages . ,(f:convert 'fset:seq (nreverse skipped)))))))
+
 ;;; Setup
 
 (defun setup (options)
@@ -385,7 +503,9 @@
               (uiop:ensure-directory-pathname
                 (merge-pathnames ".staging" root)))
         (setf (gethash :lock-path options)
-              (merge-pathnames ".zick.lock" root))))
+              (merge-pathnames ".zick.lock" root))
+        (setf (gethash :lockfile-path options)
+              (merge-pathnames "zick.lock.nrdl" root))))
     (let ((metadata (gethash :package-metadata options)))
       (when (stringp metadata)
         (setf (gethash :package-metadata options)
@@ -409,6 +529,7 @@
   (format t "~%")
   (format t "Subcommands:~%")
   (format t "  add         Add a package to the installation~%")
+  (format t "  freeze      Write a lockfile from installed packages~%")
   (format t "  files       List the files owned by a package~%")
   (format t "  info        Show information about a package~%")
   (format t "  init        Initialize the zick database~%")
@@ -442,11 +563,13 @@
       (list
         (cons '("add") #'add-command)
         (cons '("files") #'files-command)
+        (cons '("freeze") #'freeze-command)
         (cons '("info") #'info-command)
         (cons '("init") #'init-command)
         (cons '("list") #'list-command)
         (cons '("orphans") #'orphans-command)
         (cons '("remove") #'remove-command)
+        (cons '("sync") #'sync-command)
         (cons '("dependers") #'dependers-command)
         (cons '("dependees") #'dependees-command)
         (cons '("verify") #'verify-command))

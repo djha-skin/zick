@@ -260,6 +260,29 @@ The result shape mirrors @c(dependers), with the key
 @end(section)
 
 @begin(section)
+@title(freeze)
+
+Writes the installed package set to @c(zick.lock.nrdl), a versioned NRDL
+lockfile intended to be committed with the project.  Entries contain the
+package name, version, archive location, dependency names, and metadata, and
+are sorted by name for deterministic output.  The project configuration file
+@c(.zick.nrdl) remains separate.
+
+@end(section)
+
+@begin(section)
+@title(sync)
+
+Reads @c(zick.lock.nrdl) and installs missing or changed packages in
+dependency-first order.  Packages whose name, version, location, and
+dependency edges already match are skipped.  @c(-r)/@c(--enable-dry-run)
+reports the synchronization without downloading or modifying the project.
+Unsupported lockfile versions, duplicate names, and malformed fields are
+rejected before installation begins.
+
+@end(section)
+
+@begin(section)
 @title(remove)
 
 Uninstalls a package: deletes the files it owns (backing up its

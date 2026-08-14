@@ -114,6 +114,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Declarative project dependency workflows: `zick freeze` writes a
+  deterministic versioned `zick.lock.nrdl`, and `zick sync` installs its
+  packages in dependency order with drift detection and `--dry-run` support.
+
 ### Changed
 
 - The macOS release build is now Apple Silicon (arm64) only; the Intel
