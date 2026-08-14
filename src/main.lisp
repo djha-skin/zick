@@ -441,6 +441,12 @@
   (let* ((opts (hash-to-plist options))
          (entries (lockfile-install-order
                    (read-lockfile (getf opts :lockfile-path))))
+         (installed (pkg:get-present-packages opts))
+         (lock-names (mapcar #'lockfile-package-name entries))
+         (extras (remove-if
+                  (lambda (package)
+                    (member (getf package :name) lock-names :test #'string=))
+                  installed))
          synced skipped)
     (dolist (entry entries)
       (let* ((name (lockfile-package-name entry))
@@ -480,7 +486,11 @@
         (:result . :successful)
         (:dry-run . ,(getf opts :dry-run))
         (:synced-packages . ,(f:convert 'fset:seq (nreverse synced)))
-        (:skipped-packages . ,(f:convert 'fset:seq (nreverse skipped)))))))
+        (:skipped-packages . ,(f:convert 'fset:seq (nreverse skipped)))
+        (:extra-packages . ,(f:convert 'fset:seq
+                                        (mapcar (lambda (package)
+                                                  (getf package :name))
+                                                extras)))))))
 
 ;;; Setup
 

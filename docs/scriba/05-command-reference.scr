@@ -275,9 +275,10 @@ are sorted by name for deterministic output.  The project configuration file
 
 Reads @c(zick.lock.nrdl) and installs missing or changed packages in
 dependency-first order.  Packages whose name, version, location, and
-dependency edges already match are skipped.  @c(-r)/@c(--enable-dry-run)
-reports the synchronization without downloading or modifying the project.
-Unsupported lockfile versions, duplicate names, and malformed fields are
+dependency edges already match are skipped.  Packages installed locally but
+absent from the lockfile are reported as @c(extra-packages), but are not
+removed automatically.  @c(-r)/@c(--enable-dry-run) reports the
+synchronization without downloading or modifying the project.  Unsupported lockfile versions, duplicate names, and malformed fields are
 rejected before installation begins.
 
 @end(section)

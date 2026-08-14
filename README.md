@@ -104,7 +104,8 @@ zick sync
 ```
 
 Use `zick sync -r` to preview changes without downloading or modifying the
-project.
+project. Packages installed locally but absent from the lockfile are reported
+rather than removed automatically.
 
 See what's installed:
 

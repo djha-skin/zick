@@ -13,6 +13,9 @@
     #:main)
   (:import-from #:com.djhaskin.zick/db
     #:save-store)
+  (:import-from #:com.djhaskin.zick/lockfile
+    #:make-lockfile-package
+    #:write-lockfile)
   (:import-from #:com.djhaskin.zick/tests/package
     #:http-serve-once
     #:http-serve-once-auth
@@ -147,6 +150,51 @@
             (true (< (search "name \"a\"" lockfile)
                      (search "name \"z\"" lockfile)))
             (true (search "dependencies [" lockfile))))
+      (uiop:delete-directory-tree root :validate t
+                                  :if-does-not-exist :ignore))))
+
+(define-test sync-downloads-lockfile-in-dependency-order
+  :parent nil
+  "sync downloads missing lockfile packages after ordering dependencies."
+  (multiple-value-bind (root proj) (temp-project "zick-cli-sync")
+    (unwind-protect
+        (let* ((src-a (merge-pathnames "a-src/" root))
+               (src-b (merge-pathnames "b-src/" root))
+               (zip-a (make-zip root
+                                (write-source-fixture src-a
+                                                       '(("a.txt" . "a")))
+                                "a.zip"))
+               (zip-b (make-zip root
+                                (write-source-fixture src-b
+                                                       '(("b.txt" . "b")))
+                                "b.zip"))
+               (url-a (http-serve-once zip-a))
+               (url-b (http-serve-once zip-b)))
+          (is = 0 (cli proj "init"))
+          ;; Write b before a to prove sync follows dependency edges,
+          ;; rather than trusting lockfile order.
+          (write-lockfile
+           (merge-pathnames "zick.lock.nrdl" proj)
+           (list
+            (make-lockfile-package
+             :name "b" :version "1.0" :location url-b
+             :dependencies (fset:convert 'fset:seq (list "a")))
+            (make-lockfile-package
+             :name "a" :version "1.0" :location url-a)))
+          (is = 0 (cli proj "sync"))
+          (true (uiop:file-exists-p (merge-pathnames "a.txt" proj)))
+          (true (uiop:file-exists-p (merge-pathnames "b.txt" proj)))
+          ;; A second synchronization is a no-op and does not attempt
+          ;; to fetch the one-shot fixture URLs again.
+          (multiple-value-bind (exit out) (cli-captured proj "sync")
+            (is = 0 exit)
+            (true (search "skipped-packages" out))
+            (true (search "\"a\"" out))
+            (true (search "\"b\"" out)))
+          (multiple-value-bind (exit out) (cli-captured proj "list")
+            (is = 0 exit)
+            (true (search "name \"a\"" out))
+            (true (search "name \"b\"" out))))
       (uiop:delete-directory-tree root :validate t
                                   :if-does-not-exist :ignore))))
 

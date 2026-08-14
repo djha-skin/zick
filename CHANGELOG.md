@@ -112,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   binaries, all published on the GitHub Releases page for v0.1.0
   (COPR/PPA/AUR/Homebrew channels planned for later releases).
 
-## [Unreleased]
+## [0.2.0] - 2026-08-14
 
 ### Added
 

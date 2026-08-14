@@ -7,7 +7,7 @@
 # cliff/nrdl/svers so the build is self-contained.
 
 Name:           zick
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        A zip-based package manager for Common Lisp systems
 

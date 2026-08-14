@@ -1,3 +1,9 @@
+zick (0.2.0-1) unstable; urgency=medium
+
+  * Add declarative NRDL lockfiles and freeze/sync workflows.
+
+ -- Daniel Jay Haskin <djhaskin987@gmail.com>  Fri, 14 Aug 2026 00:00:00 +0000
+
 zick (0.1.0-1) unstable; urgency=medium
 
   * Initial release: zip-based package manager for Common Lisp.
